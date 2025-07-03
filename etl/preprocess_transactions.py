@@ -3,10 +3,10 @@ import re
 import pandas as pd
 import numpy as np
 
-# Paths
+# Define file paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 filepath = os.path.join(BASE_DIR, "data", "raw", "ethereum__transactions__21525890_to_21533057.csv")
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "ethereum__transactions___cleaned__21525890_to_21533057.csv")
+output_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum__transactions___cleaned__21525890_to_21533057.csv")
 
 # Step 1: Select only necessary columns
 usecols = [
