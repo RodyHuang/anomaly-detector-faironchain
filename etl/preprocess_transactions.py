@@ -3,9 +3,10 @@ import re
 import pandas as pd
 import numpy as np
 
-# Define root path and data file
+# Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 filepath = os.path.join(BASE_DIR, "data", "raw", "ethereum__transactions__21525890_to_21533057.csv")
+output_path = os.path.join(BASE_DIR, "data", "intermediate", "ethereum__transactions___cleaned__21525890_to_21533057.csv")
 
 # Step 1: Select only necessary columns
 usecols = [
@@ -65,6 +66,7 @@ def is_valid_transaction_hash(val):
 
 original_len = len(df)
 df = df[df["transaction_hash"].apply(is_valid_transaction_hash)]
+df["transaction_hash"] = df["transaction_hash"].str.strip().str.lower()
 final_len = len(df)
 removed = original_len - final_len
 print(f"Transaction hash cleaned: {removed} rows removed, {final_len} rows remaining.")
@@ -81,12 +83,14 @@ def is_valid_eth_address(val):
 # - Clean from_address
 before_from = len(df)
 df = df[df["from_address"].apply(is_valid_eth_address)]
+df["from_address"] = df["from_address"].str.strip().str.lower()
 after_from = len(df)
 print(f"From address cleaned: {before_from - after_from} rows removed, {after_from} rows remaining.")
 
 # - Clean to_address
 before_to = len(df)
 df = df[df["to_address"].apply(is_valid_eth_address)]
+df["to_address"] = df["to_address"].str.strip().str.lower()
 after_to = len(df)
 print(f"To address cleaned: {before_to - after_to} rows removed, {after_to} rows remaining.")
 
@@ -101,6 +105,7 @@ def is_valid_value_binary(val):
     
 before_val = len(df)
 df = df[df["value_binary"].apply(is_valid_value_binary)]
+df["value_binary"] = df["value_binary"].str.strip().str.lower()
 after_val = len(df)
 removed_val = before_val - after_val
 print(f"value_binary cleaned: {removed_val} rows removed, {after_val} rows remaining.")
@@ -108,9 +113,9 @@ print(f"value_binary cleaned: {removed_val} rows removed, {after_val} rows remai
 # Step 3.6: chain_id Sanity Check
 # - Since missing values were filled with 1 (Ethereum Mainnet), we just verify all values are 1
 unique_chain_ids = df["chain_id"].unique()
+df["chain_id"] = df["chain_id"].astype(int)
 print("Unique chain_id values:", unique_chain_ids)
 
 # Save to intermediate (cleaned, but not yet transformed)
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "ethereum__transactions___cleaned__21525890_to_21533057.csv")
 df.to_csv(output_path, index=False)
 print(f"✅ Cleaned transaction data saved to: {output_path}")
