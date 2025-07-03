@@ -116,6 +116,6 @@ unique_chain_ids = df["chain_id"].unique()
 df["chain_id"] = df["chain_id"].astype(int)
 print("Unique chain_id values:", unique_chain_ids)
 
-# Save to intermediate (cleaned, but not yet transformed)
+# Step 4: Save to intermediate (cleaned, but not yet transformed)
 df.to_csv(output_path, index=False)
 print(f"✅ Cleaned transaction data saved to: {output_path}")
