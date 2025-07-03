@@ -32,7 +32,7 @@ print(f"Original number of rows: {before_dropna}")
 print(f"Missing value rows dropped: {dropped_na} rows removed, {after_dropna} rows remaining.")
 
 # Step 3.2: Block Number Validation
-# Excludes values that are hex, overly long strings, or out of expected numeric range
+# - Excludes values that are hex, overly long strings, or out of expected numeric range
 def is_valid_block_number(val, max_block=999_999_999):
     try:
         val_str = str(val).strip()
@@ -51,7 +51,7 @@ removed = original_len - final_len
 print(f"Block number cleaned: {removed} rows removed, {final_len} rows remaining.")
 
 # Step 3.3: Transaction Hash Validation
-# Valid Ethereum tx hash: 66 chars, starts with 0x
+# - Valid Ethereum tx hash: 66 chars, starts with 0x
 def is_valid_transaction_hash(val):
     try:
         val_str = str(val).strip().lower()
@@ -70,7 +70,7 @@ removed = original_len - final_len
 print(f"Transaction hash cleaned: {removed} rows removed, {final_len} rows remaining.")
 
 # Step 3.4: From/To Address Validation
-# Validate Ethereum address format: 42 chars, starts with 0x
+# - Validate Ethereum address format: 42 chars, starts with 0x
 def is_valid_eth_address(val):
     try:
         val_str = str(val).strip().lower()
@@ -78,20 +78,20 @@ def is_valid_eth_address(val):
     except:
         return False
 
-# Clean from_address
+# - Clean from_address
 before_from = len(df)
 df = df[df["from_address"].apply(is_valid_eth_address)]
 after_from = len(df)
 print(f"From address cleaned: {before_from - after_from} rows removed, {after_from} rows remaining.")
 
-# Clean to_address
+# - Clean to_address
 before_to = len(df)
 df = df[df["to_address"].apply(is_valid_eth_address)]
 after_to = len(df)
 print(f"To address cleaned: {before_to - after_to} rows removed, {after_to} rows remaining.")
 
 # Step 3.5: value_binary Validation
-# Validate Ethereum transaction value format: Encoded as 0x + 64 hex characters
+# - Validate Ethereum transaction value format: Encoded as 0x + 64 hex characters
 def is_valid_value_binary(val):
     try:
         val_str = str(val).strip().lower()
@@ -106,6 +106,11 @@ removed_val = before_val - after_val
 print(f"value_binary cleaned: {removed_val} rows removed, {after_val} rows remaining.")
 
 # Step 3.6: chain_id Sanity Check
-# Since missing values were filled with 1 (Ethereum Mainnet), we just verify all values are 1
+# - Since missing values were filled with 1 (Ethereum Mainnet), we just verify all values are 1
 unique_chain_ids = df["chain_id"].unique()
 print("Unique chain_id values:", unique_chain_ids)
+
+# Save to intermediate (cleaned, but not yet transformed)
+output_path = os.path.join(BASE_DIR, "data", "intermediate", "ethereum__transactions___cleaned__21525890_to_21533057.csv")
+df.to_csv(output_path, index=False)
+print(f"✅ Cleaned transaction data saved to: {output_path}")
