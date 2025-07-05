@@ -4,8 +4,11 @@ import numpy as np
 
 # Define file paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-input_path = os.path.join(BASE_DIR, "data", "raw", "ethereum__blocks__21525890_to_21533057.csv")
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum__blocks__cleaned__21525890_to_21533057.csv")
+input_filename = "ethereum__blocks__16308189_to_16315360.csv"
+output_filename = "ethereum__blocks__cleaned__16308189_to_16315360.csv"
+
+input_path = os.path.join(BASE_DIR, "data", "raw", "ethereum", "blocks", input_filename)
+output_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum", "blocks", output_filename)
 
 # Step 1: Select only necessary columns
 usecols = ["block_number", "chain_id", "block_hash", "timestamp", "parent_hash"]
