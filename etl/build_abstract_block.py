@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-# Define file paths
+# Step 0:  Define file paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 input_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum__blocks__cleaned__21525890_to_21533057.csv")
 output_path = os.path.join(BASE_DIR, "data", "intermediate", "abstract", "ethereum__abstract_block__21525890_to_21533057.csv")
