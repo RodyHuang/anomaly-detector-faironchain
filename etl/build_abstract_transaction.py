@@ -1,27 +1,47 @@
 import os
 import pandas as pd
 
-# Step 0: Define file paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-input_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum", "transfers", "ethereum__native_transfer__cleaned__16308189_to_16315360.csv")
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "abstract", "ethereum", "abstract_transaction", "ethereum__abstract_transaction__16308189_to_16315360.csv")
+def build_abstract_transaction(input_dir, output_path):
+    """
+    Build AbstractTransaction table by merging all cleaned native transfer files in a directory.
 
-# Step 1: Load cleaned transaction data
-df = pd.read_csv(input_path)
+    Parameters:
+        input_dir (str): Path to folder containing cleaned transfer CSVs
+        output_path (str): Output path for abstract_transaction CSV
+    """
 
-# Step 2: Build 'tx_sid' and 'block_sid'
-df["tx_sid"] = df["chain_id"].astype(str) + "_" + df["transaction_hash"].str.lower().str.strip()
-df["block_sid"] = df["chain_id"].astype(str) + "_" + df["block_number"].astype(str)
+    all_tx = []
 
-# Step 3: Select and reorder columns
-abstract_transaction = df[[
-    "tx_sid",
-    "transaction_hash",
-    "block_sid"
-]].rename(columns={
-    "transaction_hash": "tx_hash"
-})
+    # Step 1: Load all transfer files
+    for fname in sorted(os.listdir(input_dir)):
+        if not fname.endswith(".csv"):
+            continue
+        file_path = os.path.join(input_dir, fname)
+        df = pd.read_csv(file_path, usecols=["chain_id", "transaction_hash", "block_number"])
+        all_tx.append(df)
 
-# Step 4: Save to intermediate/abstract
-abstract_transaction.to_csv(output_path, index=False)
-print(f"✅ AbstractTransaction saved to {output_path}")
+    if not all_tx:
+        print("⚠️ No input transaction data found.")
+        return
+
+    # Step 2: Combine and clean
+    df_all = pd.concat(all_tx).dropna().drop_duplicates()
+
+    # Step 3: Build tx_sid and block_sid
+    df_all["transaction_hash"] = df_all["transaction_hash"].str.strip().str.lower()
+    df_all["tx_sid"] = df_all["chain_id"].astype(str) + "_" + df_all["transaction_hash"]
+    df_all["block_sid"] = df_all["chain_id"].astype(str) + "_" + df_all["block_number"].astype(str)
+
+    # Step 4: Select and rename columns
+    abstract_transaction = df_all[[
+        "tx_sid",
+        "transaction_hash",
+        "block_sid"
+    ]].rename(columns={
+        "transaction_hash": "tx_hash"
+    })
+
+    # Step 5: Save
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    abstract_transaction.to_csv(output_path, index=False)
+    print(f"✅ AbstractTransaction saved to {output_path}")

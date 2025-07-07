@@ -1,47 +1,59 @@
 import os
 import pandas as pd
 
-# ========== Step 0: Define file paths ==========
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-input_path = os.path.join(BASE_DIR, "data", "intermediate", "cleaned", "ethereum", "transfers", "ethereum__native_transfer__cleaned__16308189_to_16315360.csv")
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "abstract", "ethereum", "abstract_token_transfer", "ethereum__abstract_token_transfer__16308189_to_16315360.csv")
-# ========== Step 1: Load cleaned transaction data ==========
-df = pd.read_csv(input_path)
+def build_abstract_token_transfer(input_dir, output_path):
+    """
+    Build AbstractTokenTransfer table by merging all cleaned native transfer files in a directory.
 
-# ========== Step 2: Build required fields ==========
+    Parameters:
+        input_dir (str): Path to the folder containing cleaned native transfers
+        output_path (str): Output path for the abstract_token_transfer CSV
+    """
 
-# Compose transfer_sid = chain_id + "_" + tx_hash + "_" + transfer_index
-df["transfer_sid"] = df.apply(lambda row: f"{row['chain_id']}_{row['transaction_hash']}_{row['transfer_index']}", axis=1)
+    all_transfers = []
 
-# Compose tx_sid = chain_id + "_" + tx_hash
-df["tx_sid"] = df["chain_id"].astype(str) + "_" + df["transaction_hash"]
+    # Step 1: Iterate over all transfer files
+    for fname in sorted(os.listdir(input_dir)):
+        if not fname.endswith(".csv"):
+            continue
+        print(f"📄 Processing file: {fname}")
+        file_path = os.path.join(input_dir, fname)
+        df = pd.read_csv(file_path)
 
-# Compose spender/receiver address SID
-df["spender_address_sid"] = df["chain_id"].astype(str) + "_" + df["from_address"].str.strip().str.lower()
-df["receiver_address_sid"] = df["chain_id"].astype(str) + "_" + df["to_address"].str.strip().str.lower()
+        # Step 2: Build fields
+        df["transfer_index"] = df["transfer_index"].astype(int)
+        df["transfer_sid"] = df.apply(lambda row: f"{row['chain_id']}_{row['transaction_hash']}_{row['transfer_index']}", axis=1)
+        df["tx_sid"] = df["chain_id"].astype(str) + "_" + df["transaction_hash"]
+        df["spender_address_sid"] = df["chain_id"].astype(str) + "_" + df["from_address"].str.strip().str.lower()
+        df["receiver_address_sid"] = df["chain_id"].astype(str) + "_" + df["to_address"].str.strip().str.lower()
+        df["amount"] = df["value_binary"].apply(lambda x: int(x, 16))
+        df["token_sid"] = df["chain_id"].astype(str) + "_native"
+        df["category"] = "transfer"
 
-# Convert value_binary to amount in wei
-df["amount"] = df["value_binary"].apply(lambda x: int(x, 16))
-df = df[df["amount"] > 0]  # Filter out trivial transfers (1 wei)
+        # Filter: positive amount only
+        df = df[df["amount"] > 0]
 
-# Fixed fields
-df["transfer_index"] = df["transfer_index"].astype(int)
-df["token_sid"] = df["chain_id"].astype(str) + "_native"
-df["category"] = "transfer" 
+        all_transfers.append(df)
 
-# ========== Step 3: Select and reorder columns ==========
-abstract_transfer = df[[
-    "transfer_sid",
-    "transfer_index",
-    "amount",
-    "category",
-    "tx_sid",
-    "spender_address_sid",
-    "receiver_address_sid",
-    "token_sid"
-]]
+    if not all_transfers:
+        print("⚠️ No valid transfer data found.")
+        return
 
-# ========== Step 4: Save to CSV ==========
-abstract_transfer.to_csv(output_path, index=False)
-print(f"✅ AbstractTokenTransfer saved to {output_path}")
+    # Step 3: Combine and format output
+    df_all = pd.concat(all_transfers).dropna().drop_duplicates()
 
+    abstract_transfer = df_all[[
+        "transfer_sid",
+        "transfer_index",
+        "amount",
+        "category",
+        "tx_sid",
+        "spender_address_sid",
+        "receiver_address_sid",
+        "token_sid"
+    ]]
+
+    # Step 4: Save
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    abstract_transfer.to_csv(output_path, index=False)
+    print(f"✅ AbstractTokenTransfer saved to {output_path}")

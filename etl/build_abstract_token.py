@@ -1,19 +1,25 @@
 import os
 import pandas as pd
 
-# Step 0: Define output path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-output_path = os.path.join(BASE_DIR, "data", "intermediate", "abstract", "ethereum", "abstract_token", "ethereum__abstract_token__16308189_to_16315360.csv")
+def build_abstract_token(input_dir, output_path):
+    """
+    Build AbstractToken table. Since native tokens are static, no need to read input_dir.
+    
+    Parameters:
+        input_dir (str): Unused, included for interface compatibility
+        output_path (str): Output path for abstract_token CSV
+    """
 
-# Step 1: Construct a single-row dataframe for ETH native token
-abstract_token = pd.DataFrame([{
-    "token_sid": "1_native",
-    "token_address": None,
-    "token_symbol": "ETH",
-    "token_standard": "native",
-    "token_decimals": 18
-}])
+    # Step 1: Define the native token (ETH)
+    abstract_token = pd.DataFrame([{
+        "token_sid": "1_native",
+        "token_address": None,
+        "token_symbol": "ETH",
+        "token_standard": "native",
+        "token_decimals": 18
+    }])
 
-# Step 2: Save
-abstract_token.to_csv(output_path, index=False)
-print(f"✅ AbstractToken written to {output_path}")
+    # Step 2: Save
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    abstract_token.to_csv(output_path, index=False)
+    print(f"✅ AbstractToken written to {output_path}")
