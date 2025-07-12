@@ -16,11 +16,20 @@ def run_graph_builder(year: int, month: int):
     df_filtered = filter_edgelist(df, min_amount_wei=1_000_000_000_000)
     print(f"🧹 Filtered edgelist: {len(df_filtered):,} rows")
 
-    # === 3. Build graph ===
+    # === 3 Save filtered edgelist for traceability ===
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    edgelist_dir = os.path.join(base_dir, "data", "intermediate", "abstract", "ethereum", f"{year:04d}", f"{month:02d}")
+    edgelist_filename = f"ethereum__token_transfer_edgelist__{year}_{month:02d}.parquet"
+    edgelist_path = os.path.join(edgelist_dir, edgelist_filename)
+
+    df_filtered.to_parquet(edgelist_path, index=False)
+    print(f"📄 Saved filtered edgelist to {edgelist_path}")
+
+    # === 4. Build graph ===
     g, account_to_idx = build_igraph_from_edgelist(df_filtered)
     print(f"✅ Graph: {g.vcount()} nodes, {g.ecount()} edges")
 
-    # === 4. Save ===
+    # === 5. Save ===
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     output_dir = os.path.join(base_dir, "data", "output", "graph", "ethereum", f"{year:04d}", f"{month:02d}")
     os.makedirs(output_dir, exist_ok=True)
