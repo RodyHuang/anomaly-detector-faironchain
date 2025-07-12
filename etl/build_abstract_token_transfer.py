@@ -22,11 +22,13 @@ def build_abstract_token_transfer(input_dir, output_path):
 
         # Step 2: Build fields
         df["transfer_index"] = df["transfer_index"].astype(int)
-        df["transfer_sid"] = df.apply(lambda row: f"{row['chain_id']}_{row['transaction_hash']}_{row['transfer_index']}", axis=1)
+        df["transfer_sid"] = df["chain_id"].astype(str) + "_" + df["transaction_hash"] + "_" + df["transfer_index"].astype(str)
         df["tx_sid"] = df["chain_id"].astype(str) + "_" + df["transaction_hash"]
         df["spender_address_sid"] = df["chain_id"].astype(str) + "_" + df["from_address"].str.strip().str.lower()
         df["receiver_address_sid"] = df["chain_id"].astype(str) + "_" + df["to_address"].str.strip().str.lower()
         df["amount"] = df["value_binary"].apply(lambda x: int(x, 16))
+        df["amount"] = df["amount"].astype("float64")
+        df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0).astype(float)
         df["token_sid"] = df["chain_id"].astype(str) + "_native"
         df["category"] = "transfer"
 

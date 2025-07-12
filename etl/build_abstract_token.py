@@ -13,11 +13,13 @@ def build_abstract_token(input_dir, output_path):
     # Step 1: Define the native token (ETH)
     abstract_token = pd.DataFrame([{
         "token_sid": "1_native",
-        "token_address": None,
+        "token_address": "",
         "token_symbol": "ETH",
         "token_standard": "native",
         "token_decimals": 18
     }])
+
+    abstract_token["token_address"] = abstract_token["token_address"].astype("string")
 
     # Step 2: Save
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

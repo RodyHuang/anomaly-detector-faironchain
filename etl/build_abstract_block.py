@@ -27,9 +27,10 @@ def build_abstract_block(input_dir, output_path):
     # Step 2: Combine and clean
     df = pd.concat(all_blocks).dropna().drop_duplicates()
 
-    # Step 3: Generate block_sid
+    # Step 3: Data Normalization
     df["block_sid"] = df["chain_id"].astype(str) + "_" + df["block_number"].astype(str)
-
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df["timestamp"] = df["timestamp"].astype("int64")
     # Step 4: Select columns
     abstract_block = df[["block_sid", "block_number", "timestamp"]]
 
