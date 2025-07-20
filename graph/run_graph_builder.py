@@ -37,6 +37,9 @@ def run_graph_builder(year: int, month: int):
     filename = f"ethereum__token_transfer_graph__{year}_{month:02d}.pkl"
     output_path = os.path.join(output_dir, filename)
 
+    print("🔎 Top address pairs by transfer count:")
+    print(df_filtered.groupby(["from_address_sid", "to_address_sid"]).size().nlargest(5))
+    
     with open(output_path, "wb") as f:
         pickle.dump((g, account_to_idx), f)
     print(f"💾 Saved to {output_path}")

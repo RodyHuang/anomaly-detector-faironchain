@@ -33,6 +33,7 @@ def load_clean_edgelist(year, month, chain_name="ethereum"):
 
     # Select and reorder needed columns
     edgelist_df = merged[[
+        "transfer_sid",
         "spender_address_sid",     # from
         "receiver_address_sid",    # to
         "amount",
