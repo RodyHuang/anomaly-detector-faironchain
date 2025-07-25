@@ -22,7 +22,7 @@ def build_igraph_from_edgelist(edgelist_df):
      # 1. Aggregate by sender → receiver
     before_agg = len(edgelist_df) 
     agg_df = edgelist_df.groupby(["from_address_sid", "to_address_sid"]).agg(
-        weight=("amount", "sum"),
+        amount=("amount", "sum"),
         count=("transfer_sid", "count"),
         first_timestamp=("timestamp", "min"),
         token_sid=("token_sid", "first")
@@ -46,7 +46,7 @@ def build_igraph_from_edgelist(edgelist_df):
     
     # 5. Attach attributes
     g.vs["name"] = unique_accounts
-    g.es["weight"] = agg_df["weight"].tolist()
+    g.es["amount"] = agg_df["amount"].tolist()
     g.es["count"] = agg_df["count"].tolist()
     g.es["timestamp"] = agg_df["first_timestamp"].tolist()
     g.es["token_sid"] = agg_df["token_sid"].tolist()
