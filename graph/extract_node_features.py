@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 from igraph import Graph
-from graph_utils import ensure_label_column
+from graph_utils import ensure_label_column, load_whitelist_addresses
 
 
-def extract_node_features(g: Graph, whitelist_path: str) -> pd.DataFrame:
+def extract_node_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
     """
     Extract node-level features from an igraph token transfer graph,
     with exclusion of known infrastructure addresses.
@@ -17,10 +17,7 @@ def extract_node_features(g: Graph, whitelist_path: str) -> pd.DataFrame:
         pd.DataFrame: Node-level feature DataFrame indexed by node ID
     """
     # === Load whitelist
-    whitelist_set = set()
-    if whitelist_path:
-        df_whitelist = pd.read_csv(whitelist_path)
-        whitelist_set = set(df_whitelist["address"].str.strip().str.lower())
+    whitelist_set = load_whitelist_addresses(whitelist_path) if whitelist_path else set()
 
     # === Ensure 'label' exists
     ensure_label_column(g)
