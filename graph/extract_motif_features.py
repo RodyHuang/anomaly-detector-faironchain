@@ -32,8 +32,7 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
 
     # === Build adjacency list and edge set
     out_neighbors = {v.index: set(g.successors(v.index)) for v in g.vs}
-    edge_set = set(g.get_edgelist())
-
+    
     # === Build whitelist-filtered adjacency list and edge set for triangle loop (A→B→C→A) counting
     filtered_out_neighbors, filtered_edge = build_filtered_adjacent_list_and_edges(out_neighbors, skip_vids)
 
