@@ -22,7 +22,7 @@ def compute_thresholds(df: pd.DataFrame, columns: list[str], quantile: float = 0
 
 def apply_H1_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     """
-    Apply H1 anomaly rule: 'High-inflow aggregation account with limited outflow'
+    Apply H1 anomaly rule: 'Multi-source inflow aggregation account with limited outflow'
 
     Criteria:
         - unique_in_degree ≥ top 1%
@@ -56,3 +56,61 @@ def apply_H1_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     )
 
     return df
+
+
+def apply_H2_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    """
+    Apply H2 anomaly rule: 'Multi-source inflow aggregation account with zero outflow'
+
+    Criteria:
+        - unique_in_degree ≥ top 1%
+        - unique_out_degree == 0
+
+    Returns:
+        DataFrame with H2_flag and H2_description added.
+    """
+    unique_in_deg_threshold = thresholds["unique_in_degree"]
+
+    df["H2_flag"] = (
+        (df["unique_in_degree"] >= unique_in_deg_threshold) &
+        (df["unique_out_degree"] == 0)
+    ).astype(int)
+
+    df["H2_description"] = df["H2_flag"].apply(
+        lambda x: (
+            "H2: Aggregates from many sources but shows no outgoing transfers. May indicate scam fund storage or ransomware holding address."
+        ) if x == 1 else ""
+    )
+
+    return df
+
+
+def apply_H3_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    """
+    Apply H3 anomaly rule: 'Single-inflow account with high-diversity outflow'
+
+    Criteria:
+        - unique_in_degree == 1
+        - unique_out_degree ≥ top 1%
+
+    Returns:
+        DataFrame with H3_flag and H3_description added.
+    """
+    unique_out_deg_threshold = thresholds["unique_out_degree"]
+
+    df["H3_flag"] = (
+        (df["unique_in_degree"] == 1) &
+        (df["unique_out_degree"] >= unique_out_deg_threshold)
+    ).astype(int)
+
+    df["H3_description"] = df["H3_flag"].apply(
+        lambda x: (
+            "H3: Receives funds from a single source and distributes to many addresses. May indicate laundering or scam profit distribution."
+        ) if x == 1 else ""
+    )
+
+    return df
+
+
+
+    
