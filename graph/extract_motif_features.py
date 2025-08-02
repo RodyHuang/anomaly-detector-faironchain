@@ -38,14 +38,22 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
 
     # === Count triangle loops (A→B→C→A)
     triangle_loop_counts = defaultdict(int)
+    triangle_loop_amounts = defaultdict(float)
+    triangle_loop_tx_counts = defaultdict(int)
 
     for u in tqdm(filtered_out_neighbors, desc="🔁 Counting directed triangle loops (filtered)"):
         for w in filtered_out_neighbors[u]:
             for v in filtered_out_neighbors[w]:
                 if (v, u) in filtered_edge and u < w < v:
-                    triangle_loop_counts[u] += 1
-                    triangle_loop_counts[w] += 1
-                    triangle_loop_counts[v] += 1
+                    # Triangle edges: u→w, w→v, v→u
+                    edges = [(u, w), (w, v), (v, u)]
+                    for src,tgt in edges:
+                        eid = g.get_eid(src, tgt, directed=True, error=False)
+                        amount = g.es[eid]["amount"]
+                        count = g.es[eid]["count"]
+                        triangle_loop_amounts[src] += amount
+                        triangle_loop_tx_counts[src] += count
+                        triangle_loop_counts[src] += 1 
 
     # === Aggregate node-level motif features
     rows = []
@@ -56,23 +64,43 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
                 "node": vid,
                 "self_loop_count": None,
                 "two_node_cycle_count": None,
-                "triangle_loop_count": None
+                "two_node_loop_amount": None,
+                "two_node_loop_tx_count": None,
+                "triangle_loop_count": None,
+                "triangle_loop_amount": None,
+                "triangle_loop_tx_count": None
             })
             continue
-
+        
+        # === Calculate self-loop count
         self_loop_count = int(vid in filtered_out_neighbors[vid])
-        two_node_cycle_count = sum(
-            1 for u in filtered_out_neighbors[vid]
-            if vid in filtered_out_neighbors[u]
-        )
+
+        # === Calculate two-node-loop count
+        two_node_loop_count = 0
+        two_node_loop_amount = 0.0
+        two_node_loop_tx_count = 0
+
+        for u in filtered_out_neighbors[vid]:
+            if vid in filtered_out_neighbors[u]:
+                two_node_loop_count += 1
+                
+                eid1 = g.get_eid(vid, u, directed=True)
+                eid2 = g.get_eid(u, vid, directed=True)
+                
+                two_node_loop_amount += g.es[eid1]["amount"] + g.es[eid2]["amount"]
+                two_node_loop_tx_count += g.es[eid1]["count"] + g.es[eid2]["count"]
         
         triangle_loop_count = triangle_loop_counts[vid]
 
         rows.append({
             "node": vid,
             "self_loop_count": self_loop_count,
-            "two_node_cycle_count": two_node_cycle_count,
-            "triangle_loop_count": triangle_loop_count
+            "two_node_loop_count": two_node_loop_count,
+            "two_node_loop_amount": two_node_loop_amount,
+            "two_node_loop_tx_count": two_node_loop_tx_count,
+            "triangle_loop_count": triangle_loop_count,
+            "triangle_loop_amount": triangle_loop_amounts[vid],
+            "triangle_loop_tx_count": triangle_loop_tx_counts[vid]
         })
 
     return pd.DataFrame(rows).set_index("node")

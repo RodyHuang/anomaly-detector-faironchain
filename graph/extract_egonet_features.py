@@ -29,7 +29,7 @@ def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFram
 
     rows = []
 
-    for v in tqdm(g.vs, desc="🧠 Extracting Egonet Features (whitelist-aware)"):
+    for v in tqdm(g.vs, desc="🧠 Extracting Egonet Features"):
         vid = v.index
         if vid in skip_vids:
             rows.append({
