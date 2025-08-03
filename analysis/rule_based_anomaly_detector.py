@@ -112,5 +112,46 @@ def apply_H3_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     return df
 
 
+def apply_H4_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    """
+    Apply H4 anomaly rule: 'High-diversity inflow and outflow with minimal retention'
+
+    Criteria:
+        - unique_in_degree ≥ top 1%
+        - unique_out_degree ≥ top 1%
+        - |total_input_amount - total_output_amount| / total_input_amount ≤ 0.05
+
+    Returns:
+        DataFrame with H4_flag and H4_description added.
+    """
+    unique_in_deg_threshold = thresholds["unique_in_degree"]
+    unique_out_deg_threshold = thresholds["unique_out_degree"]
+
+    # Safe computation of relative difference
+    safe_ratio = np.where(
+        df["total_input_amount"] > 0,
+        np.abs(df["total_input_amount"] - df["total_output_amount"]) / df["total_input_amount"],
+        np.nan
+    )
+
+    # Apply rule logic
+    df["H4_flag"] = (
+        (df["unique_in_degree"] >= unique_in_deg_threshold) &
+        (df["unique_out_degree"] >= unique_out_deg_threshold) &
+        (safe_ratio <= 0.05)
+    ).astype(int)
+
+    # Attach explanation only if flagged
+    df["H4_description"] = df["H4_flag"].apply(
+        lambda x: (
+            "H4: Receives from many sources and distributes to many others with minimal balance retained. Possible mixer or laundering relay."
+        ) if x == 1 else ""
+    )
+
+    return df
+
+
+
+
 
     
