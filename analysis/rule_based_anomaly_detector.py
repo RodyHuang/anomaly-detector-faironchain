@@ -13,11 +13,22 @@ def get_input_base_dir() -> str:
     return os.path.join(project_root, "data", "output", "graph")     # .../data/output/graph
 
 
-def compute_thresholds(df: pd.DataFrame, columns: list[str], quantile: float = 0.99) -> dict:
+def compute_thresholds(df: pd.DataFrame, columns: list[str], ignore_zeros_columns: list[str] = None, quantile: float = 0.99) -> dict:
     """
-    Compute the top quantile thresholds for a given list of columns.
+    Compute the top quantile thresholds for specified columns.
+    Optionally ignore zero values in selected columns.
     """
-    return {col: df[col].quantile(quantile) for col in columns}
+    thresholds = {}
+    ignore_zeros_columns = ignore_zeros_columns or []
+
+    for col in columns:
+        if col in ignore_zeros_columns:
+            series = df[col][df[col] > 0]
+        else:
+            series = df[col]
+        thresholds[col] = series.quantile(quantile) if not series.empty else 0.0
+
+    return thresholds
 
 
 def apply_H1_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
@@ -151,7 +162,100 @@ def apply_H4_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     return df
 
 
+def apply_H5_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    """
+    Apply H5 anomaly rule: 'Two-node cyclic transfer accounts'
+
+    Criteria:
+        - two_node_loop_count ≥ 1
+        - AND (
+            two_node_loop_amount ≥ top 1%
+            OR
+            two_node_loop_tx_count ≥ top 1%
+        )
+
+    Returns:
+        DataFrame with H5_flag and H5_description added.
+    """
+    amount_threshold = thresholds["two_node_loop_amount"]
+    tx_count_threshold = thresholds["two_node_loop_tx_count"]
+
+    df["H5_flag"] = (
+        (df["two_node_loop_count"] >= 1) &
+        (
+            (df["two_node_loop_amount"] >= amount_threshold) |
+            (df["two_node_loop_tx_count"] >= tx_count_threshold)
+        )
+    ).astype(int)
+
+    df["H5_description"] = df["H5_flag"].apply(
+        lambda x: (
+            "H5: Participates in closed two-node loops with high value or frequent transfers. May indicate wash trading or self-laundering."
+        ) if x == 1 else ""
+    )
+
+    return df
 
 
+def apply_H6_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    """
+    Apply H6 anomaly rule: 'Triangle cyclic transfer accounts'
 
-    
+    Criteria:
+        - triangle_loop_count ≥ 1
+        - AND (
+            triangle_loop_amount ≥ top 1%
+            OR
+            triangle_loop_tx_count ≥ top 1%
+        )
+
+    Returns:
+        DataFrame with H6_flag and H6_description added.
+    """
+    amount_threshold = thresholds["triangle_loop_amount"]
+    tx_count_threshold = thresholds["triangle_loop_tx_count"]
+
+    df["H6_flag"] = (
+        (df["triangle_loop_count"] >= 1) &
+        (
+            (df["triangle_loop_amount"] >= amount_threshold) |
+            (df["triangle_loop_tx_count"] >= tx_count_threshold)
+        )
+    ).astype(int)
+
+    df["H6_description"] = df["H6_flag"].apply(
+        lambda x: (
+            "H6: Participates in closed triangle-shaped loops with high value or frequent transfers. May indicate self-laundering or obfuscation."
+        ) if x == 1 else ""
+    )
+
+    return df
+
+def apply_all_rules(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    print("🧠 Applying H1 rule (Single-point aggregation)...")
+    df = apply_H1_rule(df, thresholds)
+    print(f"➡️  H1 flagged accounts: {df['H1_flag'].sum()}")
+
+    print("🧠 Applying H2 rule (Aggregation with zero outflow)...")
+    df = apply_H2_rule(df, thresholds)
+    print(f"➡️  H2 flagged accounts: {df['H2_flag'].sum()}")
+
+    print("🧠 Applying H3 rule (Single-inflow with high outflow diversity)...")
+    df = apply_H3_rule(df, thresholds)
+    print(f"➡️  H3 flagged accounts: {df['H3_flag'].sum()}")
+
+    print("🧠 Applying H4 rule (High inflow/outflow diversity with minimal retention)...")
+    df = apply_H4_rule(df, thresholds)
+    print(f"➡️  H4 flagged accounts: {df['H4_flag'].sum()}")
+
+    print("🧠 Applying H5 rule (Two-node cyclic transfer accounts)...")
+    df = apply_H5_rule(df, thresholds)
+    print(f"➡️  H5 flagged accounts: {df['H5_flag'].sum()}")
+
+    print("🧠 Applying H6 rule (Triangle cyclic transfer accounts)...")
+    df = apply_H6_rule(df, thresholds)
+    print(f"➡️  H6 flagged accounts: {df['H6_flag'].sum()}")
+
+    print("✅ All heuristic rules applied.\n")
+    return df
+

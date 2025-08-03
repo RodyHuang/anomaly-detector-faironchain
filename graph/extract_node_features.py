@@ -34,12 +34,10 @@ def extract_node_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
                 "node": node_id,
                 "in_degree": np.nan,
                 "out_degree": np.nan,
-                "in_out_degree_ratio": np.nan,
                 "unique_in_degree": np.nan,
                 "unique_out_degree": np.nan,
                 "total_input_amount": np.nan,
                 "total_output_amount": np.nan,
-                "input_output_amount_ratio": np.nan,
                 "balance_proxy": np.nan
             })
             continue
@@ -58,12 +56,10 @@ def extract_node_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
             "node": node_id,
             "in_degree": in_count,
             "out_degree": out_count,
-            "in_out_degree_ratio": in_count / (out_count + 1),
             "unique_in_degree": len(in_edges),
             "unique_out_degree": len(out_edges),
             "total_input_amount": total_in,
             "total_output_amount": total_out,
-            "input_output_amount_ratio": total_in / (total_out + 1),
             "balance_proxy": total_in - total_out
         }
 
