@@ -7,7 +7,7 @@ from graph_utils import ensure_label_column, load_whitelist_addresses, build_fil
 
 def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
     """
-    Extract motif-based features from the graph (self-loops, 2-node cycles, 3-node triangle loops),
+    Extract motif-based features from the graph (self-loops, 2-node loops, 3-node triangle loops),
     skipping nodes in the whitelist.
 
     Parameters:
@@ -47,13 +47,21 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
                 if (v, u) in filtered_edge and u < w < v:
                     # Triangle edges: u→w, w→v, v→u
                     edges = [(u, w), (w, v), (v, u)]
-                    for src,tgt in edges:
+                    participants = {u, w, v}
+
+                    total_amount = 0.0
+                    total_count = 0
+
+                    for src, tgt in edges:
                         eid = g.get_eid(src, tgt, directed=True, error=False)
-                        amount = g.es[eid]["amount"]
-                        count = g.es[eid]["count"]
-                        triangle_loop_amounts[src] += amount
-                        triangle_loop_tx_counts[src] += count
-                        triangle_loop_counts[src] += 1 
+                        total_amount += g.es[eid]["amount"]
+                        total_count += g.es[eid]["count"]
+
+                    # Assign total triangle metrics to all 3 participants
+                    for node in participants:
+                        triangle_loop_counts[node] += 1
+                        triangle_loop_amounts[node] += total_amount
+                        triangle_loop_tx_counts[node] += total_count
 
     # === Aggregate node-level motif features
     rows = []
@@ -63,7 +71,7 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
             rows.append({
                 "node": vid,
                 "self_loop_count": None,
-                "two_node_cycle_count": None,
+                "two_node_loop_count": None,
                 "two_node_loop_amount": None,
                 "two_node_loop_tx_count": None,
                 "triangle_loop_count": None,
