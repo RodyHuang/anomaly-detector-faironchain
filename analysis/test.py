@@ -1,39 +1,58 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
 
-# === 路徑與檔案名稱
-path = r"C:\Users\rodyh\Desktop\FairOnChain\Code\whale-anomaly-detector-faironchain\data\output\graph\ethereum\2023\01\ethereum__features__2023_01.csv"
+def plot_distribution(df, col_name, output_dir):
+    # Prepare values
+    raw = df[col_name].fillna(0)
+    logged = np.log1p(raw)
 
-# === 載入資料
-df = pd.read_csv(path)
+    # Plot
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+    
+    axs[0].hist(raw, bins=50, color='gray')
+    axs[0].set_title(f"{col_name} - Raw")
+    
+    axs[1].hist(logged, bins=50)
+    axs[1].set_title(f"{col_name} - log(x+1)")
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f"{col_name}_distribution.png"))
+    plt.close()
 
-# === 檢查欄位
-if "out_degree" not in df.columns:
-    raise ValueError("❌ 欄位 'out_degree' 不存在，請確認特徵檔內容。")
 
-# === 基本統計資訊
-print("📊 out-degree 統計摘要：")
-print(df["out_degree"].describe(percentiles=[0.9, 0.95, 0.99, 0.999]))
+def analyze_feature(df, col_name):
+    x = df[col_name].fillna(0)
+    x_nonzero = x[x > 0]
 
-# === 建議門檻：Top 10%, 5%, 1%
-q90 = df["out_degree"].quantile(0.90)
-q95 = df["out_degree"].quantile(0.95)
-q99 = df["out_degree"].quantile(0.99)
-max_val = df["out_degree"].max()
+    stats = {
+        "count": len(x),
+        "non_zero_count": (x > 0).sum(),
+        "zero_ratio": (x == 0).mean(),
+        "mean": x.mean(),
+        "median": x.median(),
+        "std": x.std(),
+        "max": x.max(),
+        "99% quantile": x.quantile(0.99),
+        "log_max": np.log1p(x.max())
+    }
 
-print("\n📌 建議門檻選項：")
-print(f"Top 10% (90% quantile): out_degree ≥ {q90:.2f}")
-print(f"Top 5%  (95% quantile): out_degree ≥ {q95:.2f}")
-print(f"Top 1%  (99% quantile): out_degree ≥ {q99:.2f}")
-print(f"最大值: {max_val}")
+    print(f"\n📊 Feature: {col_name}")
+    for k, v in stats.items():
+        print(f"{k:>18}: {v:,.2f}")
+    return stats
 
-# === 畫 log-scale 分布圖
-plt.figure(figsize=(8, 5))
-plt.hist(np.log1p(df["out_degree"]), bins=100, color='darkorange')
-plt.xlabel("log(1 + out-degree)")
-plt.ylabel("Address count")
-plt.title("Out-degree distribution (log scale)")
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+
+if __name__ == "__main__":
+    input_csv = r"C:\Users\rodyh\Desktop\FairOnChain\Code\whale-anomaly-detector-faironchain\data\output\graph\ethereum\2023\01\ethereum__features__2023_01.csv"
+   # 🔁 你可以改成變數或 argparse
+    output_dir = "feature_analysis_output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    df = pd.read_csv(input_csv)
+
+    for feature in ["two_node_loop_count", "triangle_loop_count"]:
+        analyze_feature(df, feature)
+        plot_distribution(df, feature, output_dir)

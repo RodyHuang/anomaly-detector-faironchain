@@ -98,6 +98,7 @@ def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame
                 two_node_loop_amount += g.es[eid1]["amount"] + g.es[eid2]["amount"]
                 two_node_loop_tx_count += g.es[eid1]["count"] + g.es[eid2]["count"]
         
+        # === Asign three-node-loop count
         triangle_loop_count = triangle_loop_counts[vid]
 
         rows.append({

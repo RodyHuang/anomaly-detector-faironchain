@@ -1,22 +1,19 @@
 import pandas as pd
 import numpy as np
 import os
-import argparse
-
-
-def get_input_base_dir() -> str:
-    """
-    Return the absolute path to the data/output/graph directory.
-    """
-    current_dir = os.path.dirname(os.path.abspath(__file__))         # .../analysis
-    project_root = os.path.dirname(current_dir)                      # .../whale-anomaly-detector-faironchain
-    return os.path.join(project_root, "data", "output", "graph")     # .../data/output/graph
-
 
 def compute_thresholds(df: pd.DataFrame, columns: list[str], ignore_zeros_columns: list[str] = None, quantile: float = 0.99) -> dict:
     """
-    Compute the top quantile thresholds for specified columns.
-    Optionally ignore zero values in selected columns.
+    Compute the quantile-based threshold for anomaly rule comparisons.
+
+    Parameters:
+        df (pd.DataFrame): The input DataFrame containing feature columns.
+        columns (list[str]): List of column names to compute quantile thresholds for.
+        ignore_zeros_columns (list[str]): Columns for which zero values should be excluded from the quantile computation.
+        quantile (float): The quantile to compute (e.g., 0.99 for top 1%).
+
+    Returns:
+        dict: A dictionary mapping each column name to its computed threshold value.
     """
     thresholds = {}
     ignore_zeros_columns = ignore_zeros_columns or []
@@ -232,6 +229,9 @@ def apply_H6_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     return df
 
 def apply_all_rules(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
+    total_nodes = len(df)
+    print(f"📊 Total nodes: {total_nodes}\n")
+    
     print("🧠 Applying H1 rule (Single-point aggregation)...")
     df = apply_H1_rule(df, thresholds)
     print(f"➡️  H1 flagged accounts: {df['H1_flag'].sum()}")
