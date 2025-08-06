@@ -1,6 +1,7 @@
 import os
 import argparse
 import pandas as pd
+import numpy as np 
 from rule_based_anomaly_detector import compute_thresholds, apply_all_rules
 from statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
 
@@ -25,10 +26,16 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Feature file not found: {input_path}")
 
+    # === Load data and preserve original index ===
     df = pd.read_csv(input_path)
+    df["original_index"] = df.index
+
+    # === Split infra and non-infra ===
+    df_infra = df[df["is_infra"] == 1].copy()
+    df_non_infra = df[df["is_infra"] == 0].copy()
 
     # === Step 1: Rule-based anomaly detection ===
-    thresholds = compute_thresholds(df, [
+    thresholds = compute_thresholds(df_non_infra, [
         "unique_in_degree", "unique_out_degree",
         "two_node_loop_amount", "two_node_loop_tx_count",
         "triangle_loop_amount", "triangle_loop_tx_count"
@@ -37,10 +44,10 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     "triangle_loop_amount", "triangle_loop_tx_count"
     ])
 
-    df = apply_all_rules(df, thresholds)
+    df_non_infra = apply_all_rules(df_non_infra, thresholds)
 
     # === Step 2: Statistical anomaly detection ===
-    df = preprocess_features(df)
+    df_non_infra = preprocess_features(df_non_infra)
 
     statistical_features = [
         "unique_in_degree_z", "unique_out_degree_z",
@@ -50,10 +57,20 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
         "egonet_density_z"
     ]
 
-    df = compute_mahalanobis_distance(df, statistical_features)
+    
+    print("🔍 Checking for NaN or inf in statistical features...")
+    for col in statistical_features:
+        nan_count = df_non_infra[col].isna().sum()
+        inf_count = (~df_non_infra[col].apply(np.isfinite)).sum()
+        print(f"{col}: NaN = {nan_count}, inf = {inf_count}")
+    df_non_infra = compute_mahalanobis_distance(df_non_infra, statistical_features)
+
+    # === Step 3: Merge and restore original order ===
+    df_combined = pd.concat([df_non_infra, df_infra], axis=0)
+    df_combined = df_combined.sort_values("original_index").drop(columns=["original_index"])
 
     # === Save to CSV ===
-    df.to_csv(output_path, index=False)
+    df_combined.to_csv(output_path, index=False)
     print(f"✅ Saved rule-based results to: {output_path}")
 
 if __name__ == "__main__":

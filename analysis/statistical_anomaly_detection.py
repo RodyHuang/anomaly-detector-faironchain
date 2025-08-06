@@ -57,17 +57,28 @@ def preprocess_features(df: pd.DataFrame) -> pd.DataFrame:
         log_col = f"{col}_log"
         z_col = f"{col}_z"
         df[log_col] = np.log1p(df[col])
-        df[z_col] = robust_zscore(df[log_col])
+        df[z_col] = standard_zscore(df[log_col])
 
     # === Ratio-based features: degree and amount
     df['log_degree_ratio'] = np.log((df['unique_in_degree'] + 1) / (df['unique_out_degree'] + 1))
-    df['log_degree_ratio_z'] = robust_zscore(df['log_degree_ratio'])
+    df['log_degree_ratio_z'] = standard_zscore(df['log_degree_ratio'])
 
     df['log_amount_ratio'] = np.log((df['total_input_amount'] + 1) / (df['total_output_amount'] + 1))
-    df['log_amount_ratio_z'] = robust_zscore(df['log_amount_ratio'])
+    df['log_amount_ratio_z'] = standard_zscore(df['log_amount_ratio'])
 
     # === Standard Z-score for normally distributed feature
     df['egonet_density_z'] = standard_zscore(df['egonet_density'])
+
+    # === 🔍 Debug: Output summary statistics for Z-score features
+    zscore_cols = [f"{col}_z" for col in log_robust_features] + [
+        "log_degree_ratio_z", "log_amount_ratio_z", "egonet_density_z"
+    ]
+    
+    print("\n🔎 Z-score Summary Statistics:")
+    for col in zscore_cols:
+        print(f"\n📊 {col}")
+        print(df[col].describe())
+        print(f"  NaN count: {df[col].isna().sum()}, Inf count: {(~np.isfinite(df[col])).sum()}")
 
     return df
 
@@ -90,5 +101,11 @@ def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> p
     dists = [mahalanobis(row, mean_vec, inv_cov) for row in data]
     df = df.copy()
     df["mahalanobis_distance"] = dists
+
+    # === Debug: Output summary statistics for Mahalanobis distance
+    print("\n📐 Mahalanobis Distance Summary:")
+    print(df["mahalanobis_distance"].describe())
+    print("\n🚨 Top 10 accounts by Mahalanobis distance:")
+    print(df[["mahalanobis_distance"]].sort_values(by="mahalanobis_distance", ascending=False).head(10))
 
     return df
