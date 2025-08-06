@@ -10,7 +10,7 @@ def compute_thresholds(df: pd.DataFrame, columns: list[str], ignore_zeros_column
         df (pd.DataFrame): The input DataFrame containing feature columns.
         columns (list[str]): List of column names to compute quantile thresholds for.
         ignore_zeros_columns (list[str]): Columns for which zero values should be excluded from the quantile computation.
-        quantile (float): The quantile to compute (e.g., 0.99 for top 1%).
+        quantile (float): The quantile to compute (Default: 0.99).
 
     Returns:
         dict: A dictionary mapping each column name to its computed threshold value.
@@ -231,7 +231,7 @@ def apply_H6_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 def apply_all_rules(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     total_nodes = len(df)
     print(f"📊 Total nodes: {total_nodes}\n")
-    
+
     print("🧠 Applying H1 rule (Single-point aggregation)...")
     df = apply_H1_rule(df, thresholds)
     print(f"➡️  H1 flagged accounts: {df['H1_flag'].sum()}")

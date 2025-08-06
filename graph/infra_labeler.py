@@ -27,7 +27,6 @@ def get_known_infra_addresses() -> set[str]:
     }
 
 
-# 📘 地址說明（可用於標註、解釋、debug log）
 def describe_address(address: str) -> str:
     address = address.lower()
     desc = {

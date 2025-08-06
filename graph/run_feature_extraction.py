@@ -1,6 +1,7 @@
 import os
 import argparse
 import pickle
+import pandas as pd
 
 from extract_node_features import extract_node_features
 from extract_motif_features import extract_motif_features
@@ -43,8 +44,24 @@ def run_feature_extraction(graph_path: str):
     
     df_features = df_node.join(df_motif, how="left").join(df_egonet, how="left")
 
+    # === Reset index so node becomes a column
+    df_features = df_features.reset_index()  # index → column 'node'
+
+    # === Add address from g.vs["name"]
+    df_features["address"] = df_features["node"].map(lambda i: g.vs[i]["name"])
+    df_features["address"] = df_features["address"].str.split("_").str[-1].str.lower()
+
+     # === Add is_infra flag
+    whitelist_df = pd.read_csv(whitelist_path)
+    whitelist_set = set(whitelist_df["address"].str.strip().str.lower())
+    df_features["is_infra"] = df_features["address"].apply(lambda addr: 1 if addr in whitelist_set else 0)
+
+    # === Reorder columns: node, address, is_infra, ...others
+    cols = ["node", "address", "is_infra"] + [col for col in df_features.columns if col not in {"node", "address", "is_infra"}]
+    df_final = df_features[cols]
+
     print(f"💾 Saving to {output_csv_path}")
-    df_features.to_csv(output_csv_path)
+    df_final.to_csv(output_csv_path, index=False)
     print("✅ Done.")
 
 if __name__ == "__main__":
