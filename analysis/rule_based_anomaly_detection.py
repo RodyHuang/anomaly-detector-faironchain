@@ -23,7 +23,7 @@ def compute_thresholds(df: pd.DataFrame, columns: list[str], ignore_zeros_column
             series = df[col][df[col] > 0]
         else:
             series = df[col]
-        thresholds[col] = series.quantile(quantile) if not series.empty else 0.0
+        thresholds[col] = series.quantile(quantile)
 
     return thresholds
 
@@ -161,8 +161,7 @@ def apply_H4_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 
 def apply_H5_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     """
-    Apply H5 anomaly rule: 'Two-node cyclic transfer accounts'
-
+    Apply H5 anomaly rule: 'Two-node cyclic accounts with abnormal transfer volume or frequency'
     Criteria:
         - two_node_loop_count ≥ 1
         - AND (
@@ -196,7 +195,7 @@ def apply_H5_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 
 def apply_H6_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     """
-    Apply H6 anomaly rule: 'Triangle cyclic transfer accounts'
+    Apply H6 anomaly rule: 'Triangle cyclic transfer accounts with abnormal transfer volume or frequency'
 
     Criteria:
         - triangle_loop_count ≥ 1

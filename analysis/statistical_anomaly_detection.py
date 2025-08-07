@@ -3,24 +3,7 @@ import numpy as np
 from scipy.spatial.distance import mahalanobis
 from scipy.linalg import inv
 
-def robust_zscore(series: pd.Series) -> pd.Series:
-    """
-    Compute the robust z-score of a pandas Series.
-
-    Formula:
-        robust_z = (x - median) / (MAD * 1.4826)
-
-    Parameters:
-        Input pd.Series
-
-    Returns:
-        Transformed pd.Series
-    """
-    median = series.median()
-    mad = np.median(np.abs(series - median))
-    return (series - median) / (mad * 1.4826)
-
-def standard_zscore(series: pd.Series) -> pd.Series:
+def zscore(series: pd.Series) -> pd.Series:
     """
     Compute the standard z-score of a pandas Series.
 
@@ -37,50 +20,42 @@ def standard_zscore(series: pd.Series) -> pd.Series:
     std = series.std()
     return (series - mean) / std
 
+
 def preprocess_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Preprocess features:
-    - Apply log(x+1) + robust z-score to unique_in/out_degree, total_input/output_amount, two-node/triangle_loop_count
-    - Create log ratios for degree and amount, and apply robust z-score
-    - Apply standard z-score to egonet_density
+    - Apply log1p transform to skewed count/amount columns
+    - Create log-ratio features
+    - Apply z-score to all transformed columns
 
     Returns:
         DataFrame with added processed feature columns.
     """
-    # === Log(x+1) + Robust Z-score features
-    log_robust_features = [
+    
+    # === Step 1: Log(x+1) transformed features
+    base_log_features = [
         'unique_in_degree', 'unique_out_degree',
         'total_input_amount', 'total_output_amount',
         'two_node_loop_count', 'triangle_loop_count'
     ]
-    for col in log_robust_features:
-        log_col = f"{col}_log"
-        z_col = f"{col}_z"
-        df[log_col] = np.log1p(df[col])
-        df[z_col] = standard_zscore(df[log_col])
-
-    # === Ratio-based features: degree and amount
-    df['log_degree_ratio'] = np.log((df['unique_in_degree'] + 1) / (df['unique_out_degree'] + 1))
-    df['log_degree_ratio_z'] = standard_zscore(df['log_degree_ratio'])
-
-    df['log_amount_ratio'] = np.log((df['total_input_amount'] + 1) / (df['total_output_amount'] + 1))
-    df['log_amount_ratio_z'] = standard_zscore(df['log_amount_ratio'])
-
-    # === Standard Z-score for normally distributed feature
-    df['egonet_density_z'] = standard_zscore(df['egonet_density'])
-
-    # === 🔍 Debug: Output summary statistics for Z-score features
-    zscore_cols = [f"{col}_z" for col in log_robust_features] + [
-        "log_degree_ratio_z", "log_amount_ratio_z", "egonet_density_z"
-    ]
+    for col in base_log_features:
+        df[f'{col}_log'] = np.log1p(df[col])
     
-    print("\n🔎 Z-score Summary Statistics:")
-    for col in zscore_cols:
-        print(f"\n📊 {col}")
-        print(df[col].describe())
-        print(f"  NaN count: {df[col].isna().sum()}, Inf count: {(~np.isfinite(df[col])).sum()}")
+    # === Step 2: Log-ratio features
+    df['log_degree_ratio'] = np.log((df['unique_in_degree'] + 1) / (df['unique_out_degree'] + 1))
+    df['log_amount_ratio'] = np.log((df['total_input_amount'] + 1) / (df['total_output_amount'] + 1))
+
+    # === Step 3: Features to apply z-score
+    transformed_features = [f'{col}_log' for col in base_log_features] + [
+        'log_degree_ratio',
+        'log_amount_ratio',
+        'egonet_density'
+    ]
+    for col in transformed_features:
+        df[f'{col}_z'] = zscore(df[col])
 
     return df
+
 
 def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
     """
@@ -99,7 +74,7 @@ def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> p
     inv_cov = inv(cov_matrix)
 
     dists = [mahalanobis(row, mean_vec, inv_cov) for row in data]
-    df = df.copy()
+    assert len(dists) == len(df), "Mahalanobis distances length mismatch with DataFrame"
     df["mahalanobis_distance"] = dists
 
     # === Debug: Output summary statistics for Mahalanobis distance

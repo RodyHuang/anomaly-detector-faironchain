@@ -2,7 +2,7 @@ import os
 import argparse
 import pandas as pd
 import numpy as np 
-from rule_based_anomaly_detector import compute_thresholds, apply_all_rules
+from rule_based_anomaly_detection import compute_thresholds, apply_all_rules
 from statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
 
 
@@ -34,7 +34,7 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     df_infra = df[df["is_infra"] == 1].copy()
     df_non_infra = df[df["is_infra"] == 0].copy()
 
-    # === Step 1: Rule-based anomaly detection ===
+    # === 1: Rule-based anomaly detection ===
     thresholds = compute_thresholds(df_non_infra, [
         "unique_in_degree", "unique_out_degree",
         "two_node_loop_amount", "two_node_loop_tx_count",
@@ -46,23 +46,17 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
 
     df_non_infra = apply_all_rules(df_non_infra, thresholds)
 
-    # === Step 2: Statistical anomaly detection ===
+    # === 2: Statistical anomaly detection ===
     df_non_infra = preprocess_features(df_non_infra)
 
     statistical_features = [
-        "unique_in_degree_z", "unique_out_degree_z",
-        "total_input_amount_z", "total_output_amount_z",
-        "two_node_loop_count_z", "triangle_loop_count_z",
+        "unique_in_degree_log_z", "unique_out_degree_log_z",
+        "total_input_amount_log_z", "total_output_amount_log_z",
+        "two_node_loop_count_log_z", "triangle_loop_count_log_z",
         "log_degree_ratio_z", "log_amount_ratio_z",
         "egonet_density_z"
     ]
 
-    
-    print("🔍 Checking for NaN or inf in statistical features...")
-    for col in statistical_features:
-        nan_count = df_non_infra[col].isna().sum()
-        inf_count = (~df_non_infra[col].apply(np.isfinite)).sum()
-        print(f"{col}: NaN = {nan_count}, inf = {inf_count}")
     df_non_infra = compute_mahalanobis_distance(df_non_infra, statistical_features)
 
     # === Step 3: Merge and restore original order ===
@@ -74,7 +68,7 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     print(f"✅ Saved rule-based results to: {output_path}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run rule-based anomaly detection.")
+    parser = argparse.ArgumentParser()
     parser.add_argument("--chain", type=str, default="ethereum", help="Target blockchain (default: ethereum)")
     parser.add_argument("--year", type=int, required=True, help="Target year (e.g., 2024)")
     parser.add_argument("--month", type=int, required=True, help="Target month (1–12)")
