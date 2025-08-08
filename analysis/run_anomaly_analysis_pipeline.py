@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np 
 from rule_based_anomaly_detection import compute_thresholds, apply_all_rules
 from statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
+from unsupervised_learning_anomaly_detection import fit_iforest_and_score  
 
 
 def get_input_path(base_dir, chain, year, month):
@@ -59,13 +60,21 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
 
     df_non_infra = compute_mahalanobis_distance(df_non_infra, statistical_features)
 
-    # === Step 3: Merge and restore original order ===
+    # === 3: Isolation Forest ===
+    df_non_infra = fit_iforest_and_score(
+        df_non_infra,
+        features=statistical_features,
+        max_samples=100_000,
+        n_estimators=300
+    )
+
+    # === 4: Merge and restore original order ===
     df_combined = pd.concat([df_non_infra, df_infra], axis=0)
     df_combined = df_combined.sort_values("original_index").drop(columns=["original_index"])
 
     # === Save to CSV ===
     df_combined.to_csv(output_path, index=False)
-    print(f"✅ Saved rule-based results to: {output_path}")
+    print(f"✅ Saved rule-based + statistical + IF results to: {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

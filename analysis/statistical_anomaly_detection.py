@@ -74,12 +74,12 @@ def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> p
     inv_cov = inv(cov_matrix)
 
     dists = [mahalanobis(row, mean_vec, inv_cov) for row in data]
-    assert len(dists) == len(df), "Mahalanobis distances length mismatch with DataFrame"
     df["mahalanobis_distance"] = dists
 
-    # === Debug: Output summary statistics for Mahalanobis distance
+    # === Summary of Mahalanobis
     print("\n📐 Mahalanobis Distance Summary:")
     print(df["mahalanobis_distance"].describe())
+
     print("\n🚨 Top 10 accounts by Mahalanobis distance:")
     print(df[["mahalanobis_distance"]].sort_values(by="mahalanobis_distance", ascending=False).head(10))
 

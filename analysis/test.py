@@ -1,105 +1,209 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Feature Distribution Stats (Raw + Log1p + Nonzero-Log1p diagnostics)
+--------------------------------------------------------------------
+For each feature, compute distribution stats for:
+- Raw
+- Log1p (all samples)
+- Nonzero subset after Log1p (for sparse features)
+And produce scaling recommendations for highly sparse features.
+
+Usage:
+  python feature_stats_raw_log1p.py --csv path/to/features.csv \
+      --features col1 col2 col3 --outdir ./out
+
+Outputs:
+  diagnostics_raw_log1p.csv (if --outdir specified)
+"""
+
+import argparse
+import os
+from typing import List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.stats import skew, kurtosis
 
 
-def evaluate_distribution(series: pd.Series, name: str = ""):
-    """
-    Print basic distribution stats: skewness, kurtosis, % of zero values.
-    """
-    series = series.dropna()
-    sk = skew(series)
-    kt = kurtosis(series, fisher=False)
-    pct_zero = (series == 0).mean()
-    print(f"📊 Feature: {name}")
-    print(f"  Skewness: {sk:.2f}")
-    print(f"  Kurtosis: {kt:.2f}")
-    print(f"  % Zeros:  {pct_zero:.2%}")
-    print("-" * 40)
+def _safe_numeric(s: pd.Series) -> pd.Series:
+    s = pd.to_numeric(s, errors="coerce")
+    return s.replace([np.inf, -np.inf], np.nan)
 
 
-def plot_distributions(series: pd.Series, title: str = ""):
-    """
-    Plot raw, log1p, and double-log1p histograms side-by-side.
-    """
-    series = series.dropna()
+def _dist_stats(x: pd.Series, prefix: str) -> Dict[str, Any]:
+    x = _safe_numeric(x)
+    out: Dict[str, Any] = {}
+    out[f"n_{prefix}"] = int(x.shape[0])
+    out[f"n_missing_{prefix}"] = int(x.isna().sum())
+    out[f"pct_missing_{prefix}"] = float(x.isna().mean())
+    nn = x.dropna()
+    out[f"n_unique_{prefix}"] = int(nn.nunique())
+    if nn.shape[0] == 0:
+        out[f"min_{prefix}"] = out[f"max_{prefix}"] = out[f"mean_{prefix}"] = out[f"std_{prefix}"] = None
+        out[f"skew_{prefix}"] = out[f"kurtosis_{prefix}"] = None
+        out[f"pct_zeros_{prefix}"] = None
+        return out
+    out[f"min_{prefix}"] = float(np.nanmin(nn))
+    out[f"max_{prefix}"] = float(np.nanmax(nn))
+    out[f"mean_{prefix}"] = float(np.nanmean(nn))
+    out[f"std_{prefix}"] = float(np.nanstd(nn, ddof=1)) if nn.shape[0] > 1 else 0.0
+    try:
+        out[f"skew_{prefix}"] = float(skew(nn)) if nn.shape[0] > 2 else 0.0
+    except Exception:
+        out[f"skew_{prefix}"] = None
+    try:
+        out[f"kurtosis_{prefix}"] = float(kurtosis(nn, fisher=False)) if nn.shape[0] > 3 else 3.0
+    except Exception:
+        out[f"kurtosis_{prefix}"] = None
+    out[f"pct_zeros_{prefix}"] = float((nn == 0).mean()) if nn.shape[0] else None
+    return out
 
-    transformed = {
-        "Raw": series,
-        "Log1p": np.log1p(series),
-        "Double Log": np.log1p(np.log1p(series))
+
+def _nonzero_log1p_stats(x: pd.Series) -> Dict[str, Any]:
+    """
+    Compute stats on non-zero subset after log1p.
+    Also returns Q1, Q3, IQR for IQR==0 detection.
+    """
+    x = _safe_numeric(x)
+    mask = (x != 0) & (~x.isna())
+    nnz = x[mask]
+    out: Dict[str, Any] = {
+        "n_nonzero": int(mask.sum())
     }
+    if nnz.shape[0] == 0:
+        out.update({
+            "skew_nz_log1p": None, "kurtosis_nz_log1p": None,
+            "q1_nz_log1p": None, "q3_nz_log1p": None, "iqr_nz_log1p": None
+        })
+        return out
 
-    plt.figure(figsize=(15, 4))
-    for i, (label, s) in enumerate(transformed.items(), start=1):
-        plt.subplot(1, 3, i)
-        plt.hist(s, bins=100, color="steelblue")
-        plt.title(f"{title} - {label}")
-        plt.grid(True)
+    nz_log = np.log1p(nnz)
+    out["q1_nz_log1p"] = float(np.nanpercentile(nz_log, 25)) if nz_log.size > 0 else None
+    out["q3_nz_log1p"] = float(np.nanpercentile(nz_log, 75)) if nz_log.size > 0 else None
+    out["iqr_nz_log1p"] = (
+        out["q3_nz_log1p"] - out["q1_nz_log1p"]
+        if (out["q3_nz_log1p"] is not None and out["q1_nz_log1p"] is not None)
+        else None
+    )
+    try:
+        out["skew_nz_log1p"] = float(skew(nz_log)) if nz_log.size > 2 else 0.0
+    except Exception:
+        out["skew_nz_log1p"] = None
+    try:
+        out["kurtosis_nz_log1p"] = float(kurtosis(nz_log, fisher=False)) if nz_log.size > 3 else 3.0
+    except Exception:
+        out["kurtosis_nz_log1p"] = None
+    return out
 
-    plt.tight_layout()
-    plt.show()
 
-
-def suggest_transformation(series: pd.Series) -> str:
+def _recommend_scaling(row: Dict[str, Any]) -> Tuple[str, str]:
     """
-    Suggest whether to apply double log transformation based on Z-score spread.
+    Recommend scaling for sparse counts based on:
+      - pct_zeros_raw
+      - n_nonzero
+      - skew_nz_log1p / kurtosis_nz_log1p
+      - iqr_nz_log1p
+    Returns: (recommendation, reason)
     """
-    series = series.dropna()
-    if (series <= 0).all():
-        return "⚠️ All zeros or negative — skip"
+    pct_zero = row.get("pct_zeros_raw", None)
+    nnz = row.get("n_nonzero", 0)
+    skew_nz = row.get("skew_nz_log1p", None)
+    kurt_nz = row.get("kurtosis_nz_log1p", None)
+    iqr_nz = row.get("iqr_nz_log1p", None)
 
-    # Compute z-scores for both log and double log
-    log1p = np.log1p(series)
-    dlog = np.log1p(log1p)
+    # Default
+    rec = "no_special_treatment"
+    reason = "Distribution not highly sparse; use normal log1p + standardization."
 
-    log_z = (log1p - log1p.mean()) / log1p.std()
-    dlog_z = (dlog - dlog.mean()) / dlog.std()
+    if pct_zero is None:
+        return rec, reason
 
-    log_z_max = np.abs(log_z).max()
-    dlog_z_max = np.abs(dlog_z).max()
-
-    if dlog_z_max < 6 and log_z_max > 10:
-        return "✅ Suggest: Double Log"
-    elif log_z_max > 8:
-        return "⚠️ Consider: Log1p"
+    # Very sparse
+    if pct_zero >= 0.95:
+        # IQR==0 or too few nonzero -> binary (presence) or binary + log channel
+        if (iqr_nz is None) or (iqr_nz == 0) or (nnz < 50):
+            rec = "binary_presence_or_binary_plus_log"
+            reason = (
+                f"pct_zero={pct_zero:.2%}, n_nonzero={nnz}, IQR={iqr_nz}. "
+                "Nonzero distribution too thin/degenerate; recommend binary presence. "
+                "Optionally add a log-strength channel without scaling."
+            )
+        else:
+            # decide standard vs robust on nz_log1p
+            if (skew_nz is not None and kurt_nz is not None) and (skew_nz < 2 and kurt_nz < 10):
+                rec = "log1p_then_standardize_nonzero_only"
+                reason = (
+                    f"pct_zero={pct_zero:.2%}, n_nonzero={nnz}, skew={skew_nz:.2f}, kurt={kurt_nz:.2f}, IQR={iqr_nz:.4g}. "
+                    "Nonzero log1p approx normal; standardize only the nonzero part (keep zeros as 0)."
+                )
+            else:
+                rec = "log1p_then_robust_scale_nonzero_only"
+                reason = (
+                    f"pct_zero={pct_zero:.2%}, n_nonzero={nnz}, skew={skew_nz:.2f}, kurt={kurt_nz:.2f}, IQR={iqr_nz:.4g}. "
+                    "Nonzero log1p still heavy-tailed; robust-scale only the nonzero part (keep zeros as 0)."
+                )
     else:
-        return "👍 Log1p sufficient"
+        # Not extremely sparse: treat normally
+        if (skew_nz is not None and kurt_nz is not None) and (skew_nz < 2 and kurt_nz < 10):
+            rec = "log1p_then_standardize"
+            reason = (
+                f"pct_zero={pct_zero:.2%}; overall OK after log1p. Use standard scaling."
+            )
+        else:
+            rec = "log1p_then_robust_scale"
+            reason = (
+                f"pct_zero={pct_zero:.2%}; overall still heavy-tailed after log1p. Use robust scaling."
+            )
+    return rec, reason
 
 
-def diagnose_feature(df: pd.DataFrame, feature_name: str):
-    """
-    Diagnose a single feature: print stats, show plots, and suggest transformation.
-    """
-    print(f"\n🔍 Diagnosing feature: {feature_name}")
-    series = df[feature_name]
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--csv", required=True, help="Path to your features CSV")
+    ap.add_argument("--features", nargs="+", required=True, help="Feature column names to analyze")
+    ap.add_argument("--outdir", default=None, help="If set, write diagnostics_raw_log1p.csv")
+    args = ap.parse_args()
 
-    evaluate_distribution(series, "Raw")
-    evaluate_distribution(np.log1p(series), "Log1p")
-    evaluate_distribution(np.log1p(np.log1p(series)), "Double Log")
+    df = pd.read_csv(args.csv)
+    missing = [f for f in args.features if f not in df.columns]
+    if missing:
+        raise SystemExit(f"Features not in CSV: {missing}")
 
-    suggestion = suggest_transformation(series)
-    print(f"📌 Transformation Suggestion: {suggestion}")
-    plot_distributions(series, title=feature_name)
+    rows = []
+    for feat in args.features:
+        s_raw = df[feat]
+        s_log_all = np.log1p(_safe_numeric(s_raw).clip(lower=0))
+
+        stats_raw = _dist_stats(s_raw, "raw")
+        stats_log = _dist_stats(s_log_all, "log1p")
+        stats_nz = _nonzero_log1p_stats(s_raw)
+
+        row = {"feature": feat}
+        row.update(stats_raw)
+        row.update(stats_log)
+        row.update(stats_nz)
+
+        # Recommendation block
+        rec, reason = _recommend_scaling({**row})
+        row["scaling_recommendation"] = rec
+        row["scaling_reason"] = reason
+
+        rows.append(row)
+
+        # Console summary
+        print(f"\n==== {feat} ====")
+        print(f"Raw:    skew={stats_raw['skew_raw']:.3f}, kurtosis={stats_raw['kurtosis_raw']:.3f}, %zeros={stats_raw['pct_zeros_raw']:.2%}")
+        print(f"Log1p:  skew={stats_log['skew_log1p']:.3f}, kurtosis={stats_log['kurtosis_log1p']:.3f}, %zeros={stats_log['pct_zeros_log1p']:.2%}")
+        print(f"NZ+Log: n_nonzero={stats_nz['n_nonzero']}, skew={stats_nz['skew_nz_log1p']}, kurt={stats_nz['kurtosis_nz_log1p']}, "
+              f"Q1={stats_nz['q1_nz_log1p']}, Q3={stats_nz['q3_nz_log1p']}, IQR={stats_nz['iqr_nz_log1p']}")
+        print(f"↳ Recommend: {rec}\n   Reason: {reason}")
+
+    if args.outdir:
+        os.makedirs(args.outdir, exist_ok=True)
+        out_csv = os.path.join(args.outdir, "diagnostics_raw_log1p.csv")
+        pd.DataFrame(rows).to_csv(out_csv, index=False)
+        print(f"\n[OK] Wrote summary CSV: {out_csv}")
 
 
-def batch_diagnose(df: pd.DataFrame, features: list[str]):
-    """
-    Run diagnosis for a list of features.
-    """
-    for feature in features:
-        diagnose_feature(df, feature)
-        print("\n" + "=" * 60 + "\n")
-
-features = [
-    "unique_in_degree", "unique_out_degree",
-    "total_input_amount", "total_output_amount",
-    "two_node_loop_count", "triangle_loop_count",
-    "egonet_node_count", "egonet_density"
-]
-
-csv_path = r"C:\Users\rodyh\Desktop\FairOnChain\Code\whale-anomaly-detector-faironchain\data\output\graph\ethereum\2023\01\ethereum__features__2023_01.csv"
-df = pd.read_csv(csv_path)
-
-batch_diagnose(df, features)
+if __name__ == "__main__":
+    main()
