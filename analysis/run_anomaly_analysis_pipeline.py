@@ -2,10 +2,11 @@ import os
 import argparse
 import pandas as pd
 import numpy as np 
+import matplotlib.pyplot as plt
 from rule_based_anomaly_detection import compute_thresholds, apply_all_rules
 from statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
 from unsupervised_learning_anomaly_detection import fit_iforest_and_score  
-
+from scoring import score_rule_based, score_statistical_percentile,score_iforest_percentile, combine_scores
 
 def get_input_path(base_dir, chain, year, month):
     return os.path.join(
@@ -68,9 +69,21 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
         n_estimators=300
     )
 
-    # === 4: Merge and restore original order ===
+    # === 4: Scoring (0–100) ===
+    df_non_infra = score_rule_based(df_non_infra)
+    df_non_infra = score_statistical_percentile(df_non_infra)   # uses 'mahalanobis_distance'
+    df_non_infra = score_iforest_percentile(df_non_infra)       # uses 'iforest_score'
+    df_non_infra = combine_scores(df_non_infra)                  # makes 'final_score_0_100'
+
+    # === 5: Merge and restore original order ===
     df_combined = pd.concat([df_non_infra, df_infra], axis=0)
     df_combined = df_combined.sort_values("original_index").drop(columns=["original_index"])
+    # === Drop *_log, *_z, and *_ratio columns unless needed ===
+    drop_cols = [
+        col for col in df_combined.columns
+        if col.endswith("_log") or col.endswith("_z") or col.endswith("_ratio")
+    ]
+    df_combined = df_combined.drop(columns=drop_cols)
 
     # === Save to CSV ===
     df_combined.to_csv(output_path, index=False)
