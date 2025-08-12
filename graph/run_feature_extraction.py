@@ -13,7 +13,7 @@ def get_graph_path(base_dir, chain, year, month):
         f"{chain}__token_transfer_graph__{year}_{month:02d}.pkl"
     )
 
-def run_feature_extraction(graph_path: str):
+def run_feature_extraction(graph_path: str, year: int, month: int):
     print(f"📥 Loading graph from {graph_path} ...")
     with open(graph_path, "rb") as f:
         g, account_to_idx = pickle.load(f)
@@ -56,12 +56,19 @@ def run_feature_extraction(graph_path: str):
     whitelist_set = set(whitelist_df["address"].str.strip().str.lower())
     df_features["is_infra"] = df_features["address"].apply(lambda addr: 1 if addr in whitelist_set else 0)
 
-    # === Reorder columns: node, address, is_infra, ...others
-    cols = ["node", "address", "is_infra"] + [col for col in df_features.columns if col not in {"node", "address", "is_infra"}]
+    # === Add chain_id, year, month
+    df_features["chain_id"] = 1
+    df_features["year"] = year
+    df_features["month"] = month
+
+    # === Reorder columns: node, address, is_infra, chain_id, year, month, ...others
+    front_cols = ["node", "address", "is_infra", "chain_id", "year", "month"]
+    cols = front_cols + [col for col in df_features.columns if col not in front_cols]
     df_final = df_features[cols]
 
     print(f"💾 Saving to {output_csv_path}")
     df_final.to_csv(output_csv_path, index=False)
+    df_final.to_parquet(output_csv_path.replace(".csv", ".parquet"), index=False)
     print("✅ Done.")
 
 if __name__ == "__main__":
@@ -77,4 +84,4 @@ if __name__ == "__main__":
     if not os.path.exists(graph_path):
         raise FileNotFoundError(f"Graph file not found: {graph_path}")
 
-    run_feature_extraction(graph_path)
+    run_feature_extraction(graph_path, args.year, args.month)
