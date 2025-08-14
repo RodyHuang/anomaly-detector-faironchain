@@ -1,11 +1,14 @@
 import os
 from flask import Flask, request, jsonify
 from utils import wei_to_eth, build_month_parquet_path, query_duckdb, pack_rules
+from sql_api import register_sql_endpoint
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 app.json.sort_keys = False
+
+register_sql_endpoint(app)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
