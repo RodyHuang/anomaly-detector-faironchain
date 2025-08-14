@@ -85,9 +85,13 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     ]
     df_combined = df_combined.drop(columns=drop_cols)
 
-    # === Save to CSV ===
+    # === Save to CSV & Parquet ===
     df_combined.to_csv(output_path, index=False)
-    print(f"✅ Saved rule-based + statistical + IF results to: {output_path}")
+    output_parquet_path = output_path.replace(".csv", ".parquet")
+    df_combined.to_parquet(output_parquet_path, index=False)
+
+    print(f"✅ Saved CSV to: {output_path}")
+    print(f"✅ Saved Parquet to: {output_parquet_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

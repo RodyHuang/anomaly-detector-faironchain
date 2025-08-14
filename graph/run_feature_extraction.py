@@ -68,7 +68,6 @@ def run_feature_extraction(graph_path: str, year: int, month: int):
 
     print(f"💾 Saving to {output_csv_path}")
     df_final.to_csv(output_csv_path, index=False)
-    df_final.to_parquet(output_csv_path.replace(".csv", ".parquet"), index=False)
     print("✅ Done.")
 
 if __name__ == "__main__":
