@@ -4,40 +4,44 @@ from utils import wei_to_eth, build_month_parquet_path, query_duckdb, pack_rules
 from sql_api import register_sql_endpoint
 
 app = Flask(__name__)
+# Prevent JSON output from reordering keys
 app.config["JSON_SORT_KEYS"] = False
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 app.json.sort_keys = False
 
+# Register SQL API endpoint from separate module
 register_sql_endpoint(app)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# ===== Endpoints: /v1/top and /v1/address =====
+# ===== Endpoint: /v1/top =====
 @app.route("/v1/top", methods=["GET"])
 def top():
     """
+    Returns top-N addresses ranked by final_score_0_100.
     Example:
       /v1/top?chain=ethereum&year=2023&month=1&n=100
     """
-    # Data file path
+    # --- Parse query params ---
     try:
-        chain = request.args.get("chain", "ethereum")
+        chain = request.args.get("chain")
         year = int(request.args.get("year"))
         month = int(request.args.get("month"))
     except Exception:
         return jsonify({"error": "missing or invalid chain/year/month"}), 400
 
+    # --- Resolve parquet file path ---
     path = build_month_parquet_path(chain, year, month)
     if not os.path.exists(path):
         return jsonify({"error": f"parquet not found for {chain} {year}-{month:02d}", "path": path}), 404
 
-    # Top-N
+    # --- Parse top-N limit ---
     try:
         n = int(request.args.get("n", 100))
     except Exception:
         return jsonify({"error": "invalid n"}), 400
 
-    # SQL query
+    # --- Query DuckDB for top N addresses ---
     sql = """
         SELECT address, final_score_0_100
         FROM read_parquet(?)
@@ -46,36 +50,37 @@ def top():
     """
 
     df = query_duckdb(sql, [path, n])
+
+    # Add ranking column starting from 1
     df.insert(0, "ranking", range(1, len(df) + 1))
     df["final_score_0_100"] = df["final_score_0_100"].astype("float64").round(1)
 
     return df.to_json(orient="records", double_precision=2), 200, {"Content-Type": "application/json"}
 
 
+# ===== Endpoint: /v1/address =====
 @app.route("/v1/address", methods=["GET"])
 def get_address():
     """
-    Example:：
+    Returns detailed feature and score data for a single address.
+    Example:
       /v1/address?chain=ethereum&year=2023&month=1&addr=0xabc...
     """
-    
-    # Data file path
+    # --- Parse query params ---
     try:
-        chain = request.args.get("chain", "ethereum")
+        chain = request.args.get("chain")
         year = int(request.args.get("year"))
         month = int(request.args.get("month"))
         addr = request.args.get("addr", "").strip().lower()
     except Exception:
         return jsonify({"error": "missing or invalid chain/year/month/addr"}), 400
 
-    if not addr:
-        return jsonify({"error": "missing addr"}), 400
-
+    # --- Resolve parquet file path ---
     path = build_month_parquet_path(chain, year, month)
     if not os.path.exists(path):
         return jsonify({"error": f"parquet not found for {chain} {year}-{month:02d}", "path": path}), 404
 
-    # Cols list
+    # --- Columns to return ---
     BASE_COLS = [
         "address",
         "is_infra",
@@ -93,7 +98,7 @@ def get_address():
     cols_sql = ", ".join(COLS)
 
 
-    # SQL query
+    # --- Query DuckDB for this address ---
     sql = f"""
         SELECT {cols_sql}
         FROM read_parquet(?)
@@ -102,10 +107,11 @@ def get_address():
     df = query_duckdb(sql, [path, addr])
 
     if df.empty:
-        return jsonify([]), 200
+        return jsonify([]), 200 # Address not found
     
     r = df.iloc[0].to_dict()
 
+    # --- Special case: infrastructure account ---
     if bool(r["is_infra"]):
         resp = {
         "meta": {
@@ -131,6 +137,7 @@ def get_address():
     }
         return jsonify(resp), 200, {"Content-Type": "application/json"}
 
+    # --- Normal case: return all feature and score details ---
     resp = {
         "meta": {
             "chain": chain,
@@ -141,7 +148,7 @@ def get_address():
                 "egonet_density": "0–1",
                 "degree": "count",
                 "scores": "0–100"
-    },
+            },
         },
         "features": {
             "is_infra": bool(r["is_infra"]),
@@ -177,6 +184,7 @@ def get_address():
     }
 
     return jsonify(resp), 200, {"Content-Type": "application/json"}
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
