@@ -168,7 +168,7 @@ def get_address():
                 "triangle_loop_count": int(r["triangle_loop_count"]),
             },
             "egonet": {
-                "egonet_density": float(r["egonet_density"])
+                "egonet_density": round(float(r["egonet_density"]), 1)
             }
         },
         "scores": {

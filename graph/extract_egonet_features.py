@@ -46,11 +46,16 @@ def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFram
             if n not in skip_vids
         }
         ego_nodes.add(vid)  # Add self
-
+        
         # === Induced subgraph
         ego_subgraph = g.subgraph(ego_nodes)
-        n = ego_subgraph.vcount()
-        m = ego_subgraph.ecount()
+        
+        # remove self-loops and merge parallel edges
+        ego_simple = ego_subgraph.copy()
+        ego_simple.simplify(multiple=True, loops=True)  # drops loops; merges multiedges
+        
+        n = ego_simple.vcount()
+        m = ego_simple.ecount()
         max_edges = n * (n - 1)  # directed
         density = m / max_edges if max_edges > 0 else 0
 

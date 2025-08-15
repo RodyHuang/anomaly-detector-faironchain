@@ -16,28 +16,6 @@ def run_graph_builder(year: int, month: int):
     df_filtered = filter_edgelist(df, min_amount_wei=1_000_000_000_000)
     print(f"🧹 Filtered edgelist: {len(df_filtered):,} rows")
 
-    # # === 2.5 (Optional) Show top interacting addresses for whitelist generation ===
-    # print("\n⚪ Top sender addresses:")
-    # from_counts = df_filtered["from_address_sid"].value_counts()
-    # print(from_counts.head(10))
-
-    # print("\n⚪ Top receiver addresses:")
-    # to_counts = df_filtered["to_address_sid"].value_counts()
-    # print(to_counts.head(10))
-
-    # # === Combine send and receive counts into total degree ===
-    # total_degree = (from_counts + to_counts).sort_values(ascending=False)
-
-    # # === Extract top 50 high-degree addresses ===
-    # top_50_addrs = total_degree.head(50)
-    # print("\n🔗 Top 50 high-degree addresses (pure address only):")
-    # for sid in top_50_addrs.index:
-    #     try:
-    #         addr = sid.split("_", 1)[1]  # 去掉 chain_id 前綴
-    #         print(addr)
-    #     except IndexError:
-    #         print(f"[!] Unexpected SID format: {sid}")
-
     # === 3 Save filtered edgelist for traceability ===
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     edgelist_dir = os.path.join(base_dir, "data", "intermediate", "abstract", "ethereum", f"{year:04d}", f"{month:02d}")
@@ -62,7 +40,7 @@ def run_graph_builder(year: int, month: int):
     with open(output_path, "wb") as f:
         pickle.dump((g, account_to_idx), f)
     print(f"💾 Saved to {output_path}")
-
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--year", type=int, required=True)
@@ -70,3 +48,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_graph_builder(args.year, args.month)
+    
