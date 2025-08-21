@@ -1,18 +1,25 @@
 import pandas as pd
 
 def preprocess_blocks(input_path, output_path):
+    """
+    Clean raw block CSV for one day:
+    - select stable columns
+    - validate/normalize block_number, block_hash, timestamp, chain_id
+    - drop rows with missing/invalid critical fields
+    """
     usecols = ["block_number", "chain_id", "block_hash", "timestamp", "parent_hash"]
     df = pd.read_csv(input_path, usecols=usecols)
     print(f"Loaded {len(df)} rows from: {input_path}")
 
+    # default chain_id if missing
     df["chain_id"] = df["chain_id"].fillna(1)
 
-    # Drop missing values
+     # drop rows with critical nulls
     before_dropna = len(df)
     df = df.dropna(subset=["block_number", "block_hash", "timestamp"])
     print(f"Missing value rows dropped: {before_dropna - len(df)}")
 
-    # Block number validation
+    # block number validation
     def is_valid_block_number(val, max_block=999_999_999):
         try:
             val_str = str(val).strip()
@@ -28,7 +35,7 @@ def preprocess_blocks(input_path, output_path):
     df["block_number"] = df["block_number"].astype("Int64")
     print(f"Block number cleaned: {before_bn - len(df)} rows removed")
 
-    # Block hash validation
+    # block hash validation (0x + 64 hex)
     def is_valid_block_hash(val):
         try:
             val_str = str(val).strip().lower()
@@ -41,21 +48,21 @@ def preprocess_blocks(input_path, output_path):
     df["block_hash"] = df["block_hash"].str.strip().str.lower()
     print(f"Block hash cleaned: {before_bh - len(df)} rows removed")
 
-    # Timestamp validation
+    # timestamp: assume epoch seconds
     before_ts = len(df)
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", errors="coerce")
     df = df.dropna(subset=["timestamp"])
     print(f"Timestamp cleaned: {before_ts - len(df)} rows removed")
 
-    # Chain ID check
+    # chain_id to int
     df["chain_id"] = df["chain_id"].astype(int)
     print("Unique chain_id values:", df["chain_id"].unique())
 
-    # Summary
+    # summary
     original_len = before_dropna
     final_len = len(df)
     print(f"📊 Summary: {original_len} → {final_len} rows kept ({original_len - final_len} removed)")
 
-    # Save
+    # save
     df.to_csv(output_path, index=False)
     print(f"Cleaned block data saved to: {output_path}")

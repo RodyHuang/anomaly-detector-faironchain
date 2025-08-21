@@ -2,6 +2,12 @@ import pandas as pd
 import re
 
 def preprocess_transactions(input_path, output_path):
+    """
+    Clean raw native transfer CSV for one day:
+    - select stable columns
+    - validate/normalize block_number, transaction_hash, addresses, value_binary, chain_id
+    - drop rows with missing/invalid critical fields
+    """
     usecols = [
         "block_number",
         "transfer_index",
@@ -15,15 +21,16 @@ def preprocess_transactions(input_path, output_path):
     df = pd.read_csv(input_path, usecols=usecols)
     print(f"Loaded {len(df)} rows from: {input_path}")
 
+    # default chain_id if missing
     df["chain_id"] = df["chain_id"].fillna(1)
 
-    # Drop rows with any missing values in critical columns
+    # drop rows with any missing values in critical columns
     before_dropna = len(df)
     df = df.dropna(subset=usecols)
     after_dropna = len(df)
     print(f"Missing values removed: {before_dropna - after_dropna} rows")
 
-    # Block number validation
+    # block number validation
     def is_valid_block_number(val, max_block=999_999_999):
         try:
             val_str = str(val).strip()
@@ -39,7 +46,7 @@ def preprocess_transactions(input_path, output_path):
     df["block_number"] = df["block_number"].astype(int)
     print(f"Block number cleaned: {before_bn - len(df)} rows removed")
 
-    # Transaction hash
+    # transaction hash (0x + 64 hex)
     def is_valid_transaction_hash(val):
         try:
             val_str = str(val).strip().lower()
@@ -52,7 +59,7 @@ def preprocess_transactions(input_path, output_path):
     df["transaction_hash"] = df["transaction_hash"].str.strip().str.lower()
     print(f"Transaction hash cleaned: {before_tx - len(df)} rows removed")
 
-    # Address format
+    # address format (0x + 40 hex)
     def is_valid_eth_address(val):
         try:
             val_str = str(val).strip().lower()
@@ -70,7 +77,7 @@ def preprocess_transactions(input_path, output_path):
     df["to_address"] = df["to_address"].str.strip().str.lower()
     print(f"To address cleaned: {before_to - len(df)} rows removed")
 
-    # value_binary
+    # value_binary (0x + 64 hex)
     def is_valid_value_binary(val):
         try:
             val_str = str(val).strip().lower()
@@ -83,12 +90,15 @@ def preprocess_transactions(input_path, output_path):
     df["value_binary"] = df["value_binary"].str.strip().str.lower()
     print(f"value_binary cleaned: {before_val - len(df)} rows removed")
 
+    # chain_id to int
     df["chain_id"] = df["chain_id"].astype(int)
     print("Unique chain_id values:", df["chain_id"].unique())
 
+    # summary
     original_len = before_dropna
     final_len = len(df)
     print(f"Summary: {original_len} → {final_len} rows kept ({original_len - final_len} removed)")
 
+    # save
     df.to_csv(output_path, index=False)
     print(f"Cleaned native transfer data saved to: {output_path}")

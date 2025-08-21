@@ -1,15 +1,20 @@
 import os
 import argparse
-from preprocess_native_transfer import preprocess_transactions
-from preprocess_blocks import preprocess_blocks
+from etl.preprocess.preprocess_native_transfer import preprocess_transactions
+from etl.preprocess.preprocess_blocks import preprocess_blocks
 
 def run_preprocessing(year, month, chain_name="ethereum"):
-    # Define paths
+    """
+    Preprocess one month's raw CSVs (blocks & transfers) into cleaned CSVs.
+    Input:  data/raw/{chain}/{dataset}/YYYY/MM/*.csv
+    Output: data/intermediate/cleaned/{chain}/{dataset}/YYYY/MM/*__cleaned.csv
+    """
+    # project root = parent of this file's directory
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     raw_dir = os.path.join(base_dir, "data", "raw", chain_name)
     cleaned_dir = os.path.join(base_dir, "data", "intermediate", "cleaned", chain_name)
 
-    # Define input/output dirs
+    # monthly input/output dirs
     tx_input_dir = os.path.join(raw_dir, "transfers", f"{year:04d}", f"{month:02d}")
     block_input_dir = os.path.join(raw_dir, "blocks", f"{year:04d}", f"{month:02d}")
     tx_output_dir = os.path.join(cleaned_dir, "transfers", f"{year:04d}", f"{month:02d}")
@@ -18,7 +23,7 @@ def run_preprocessing(year, month, chain_name="ethereum"):
     os.makedirs(tx_output_dir, exist_ok=True)
     os.makedirs(block_output_dir, exist_ok=True)
 
-    # Preprocess transaction files
+    # transfers
     for filename in sorted(os.listdir(tx_input_dir)):
         if not filename.endswith(".csv"):
             continue
@@ -28,7 +33,7 @@ def run_preprocessing(year, month, chain_name="ethereum"):
         print(f"Preprocessing transfer file: {filename}")
         preprocess_transactions(input_path, output_path)
 
-    # Preprocess block files
+    # blocks
     for filename in sorted(os.listdir(block_input_dir)):
         if not filename.endswith(".csv"):
             continue
