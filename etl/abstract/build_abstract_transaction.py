@@ -5,32 +5,42 @@ def build_abstract_transaction(input_dir, output_path):
     """
     Build AbstractTransaction table by merging all cleaned native transfer files in a directory.
 
-    Parameters:
-        input_dir (str): Path to folder containing cleaned transfer CSVs
-        output_path (str): Output path for abstract_transaction CSV
-    """
+    Inputs (per cleaned transfer CSV):
+        - chain_id
+        - transaction_hash
+        - block_number
 
+    Output CSV schema:
+        - tx_sid: f"{chain_id}_{tx_hash_lower}"
+        - tx_hash: normalized (lowercased, stripped)
+        - block_sid: f"{chain_id}_{block_number}"
+    """
     all_tx = []
 
     # Step 1: Load all transfer files
     for fname in sorted(os.listdir(input_dir)):
         if not fname.endswith(".csv"):
             continue
+
+        print(f"📄 Processing file: {fname}")
         file_path = os.path.join(input_dir, fname)
         df = pd.read_csv(file_path, usecols=["chain_id", "transaction_hash", "block_number"])
         all_tx.append(df)
 
-    if not all_tx:
-        print("⚠️ No input transaction data found.")
-        return
-
     # Step 2: Combine and clean
-    df_all = pd.concat(all_tx).dropna().drop_duplicates()
+    print("🔄 Concatenating all dataframes...")
+    df_all = pd.concat(all_tx, ignore_index=True, copy=False)
+
+    print("🔄 Dropping NA rows...")
+    df_all = df_all.dropna(subset=["chain_id", "transaction_hash", "block_number"])
 
     # Step 3: Build tx_sid and block_sid
-    df_all["transaction_hash"] = df_all["transaction_hash"].str.strip().str.lower()
+    df_all["transaction_hash"] = df_all["transaction_hash"].astype(str).str.strip().str.lower()
     df_all["tx_sid"] = df_all["chain_id"].astype(str) + "_" + df_all["transaction_hash"]
     df_all["block_sid"] = df_all["chain_id"].astype(str) + "_" + df_all["block_number"].astype(str)
+
+    print("🔄 Dropping duplicates...")
+    df_all = df_all.drop_duplicates(subset=["tx_sid"])
 
     # Step 4: Select and rename columns
     abstract_transaction = df_all[[

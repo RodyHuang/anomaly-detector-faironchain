@@ -1,0 +1,98 @@
+# save as tests/test_graph_tuple_summary.py and run:
+#   python -m tests.test_graph_tuple_summary
+
+import pickle
+
+path = r"C:\Users\rodyh\Desktop\FairOnChain\Code\whale-anomaly-detector-faironchain\data\output\graph\ethereum\2023\01\ethereum__token_transfer_graph__2023_01.pkl"
+
+def try_pandas_counts(df):
+    import pandas as pd
+    if not hasattr(df, "columns"):
+        return None
+    cols = {c.lower() for c in df.columns}
+    # 常見邊欄位
+    edge_pairs = [
+        ("spender_address_sid", "receiver_address_sid"),
+        ("spender", "receiver"),
+        ("src", "dst"),
+        ("source", "target"),
+        ("u", "v"),
+    ]
+    for a,b in edge_pairs:
+        if a in cols and b in cols:
+            a_real = [c for c in df.columns if c.lower()==a][0]
+            b_real = [c for c in df.columns if c.lower()==b][0]
+            edges = len(df)
+            nodes = len(set(df[a_real]).union(set(df[b_real])))
+            return nodes, edges
+    # 如果像 vertices 表
+    if any(k in cols for k in ["account_sid","vertex","node","id"]):
+        return ("vertices_only", len(df))
+    return None
+
+with open(path, "rb") as f:
+    obj = pickle.load(f)
+
+nodes = edges = None
+
+def print_done(nodes, edges, note=""):
+    print(f"Nodes: {nodes} | Edges: {edges}" + (f"  ({note})" if note else ""))
+    raise SystemExit
+
+# 1) 直接是 igraph 或 networkx
+try:
+    import igraph as ig
+    if hasattr(obj, "vcount") and hasattr(obj, "ecount"):
+        print_done(obj.vcount(), obj.ecount(), "igraph Graph")
+except Exception:
+    pass
+
+try:
+    import networkx as nx
+    if hasattr(obj, "number_of_nodes") and hasattr(obj, "number_of_edges"):
+        print_done(obj.number_of_nodes(), obj.number_of_edges(), "networkx Graph")
+except Exception:
+    pass
+
+# 2) 若是 tuple / dict，逐一嘗試
+candidates = []
+if isinstance(obj, tuple):
+    candidates = list(obj)
+elif isinstance(obj, dict):
+    candidates = list(obj.values())
+else:
+    candidates = [obj]
+
+for x in candidates:
+    # igraph
+    if hasattr(x, "vcount") and hasattr(x, "ecount"):
+        print_done(x.vcount(), x.ecount(), "igraph Graph inside container")
+    # networkx
+    if hasattr(x, "number_of_nodes") and hasattr(x, "number_of_edges"):
+        print_done(x.number_of_nodes(), x.number_of_edges(), "networkx Graph inside container")
+    # pandas DataFrame（邊表）
+    try:
+        res = try_pandas_counts(x)
+        if isinstance(res, tuple) and len(res)==2:
+            n,e = res
+            print_done(n, e, "counts from edge DataFrame")
+    except Exception:
+        pass
+
+# 3) 最後一招：tuple 內同時有 edges_df + vertices_df
+import pandas as pd
+dfs = [x for x in candidates if hasattr(x, "columns")]
+edges_df = vertices_df = None
+for df in dfs:
+    res = try_pandas_counts(df)
+    if isinstance(res, tuple) and len(res)==2:
+        edges_df = df
+    elif isinstance(res, tuple) and res[0]=="vertices_only":
+        vertices_df = df
+
+if edges_df is not None and vertices_df is not None:
+    # 直接用兩表的長度
+    # 也可改為從 vertices_df 取 nodes，從 edges_df 取 edges
+    print_done(len(vertices_df), len(edges_df), "edges+vertices DataFrames")
+
+print("Sorry，我看不出這個 pickle 的結構（不是常見的 Graph/edges/vertices）。建議把內容鍵名貼給我，我再幫你對應。")

@@ -1,12 +1,19 @@
 import os
 import argparse
-from build_abstract_block import build_abstract_block
-from build_abstract_transaction import build_abstract_transaction
-from build_abstract_token_transfer import build_abstract_token_transfer
-from build_abstract_token import build_abstract_token
-from build_abstract_account import build_abstract_account
+from etl.abstract.build_abstract_block import build_abstract_block
+from etl.abstract.build_abstract_transaction import build_abstract_transaction
+from etl.abstract.build_abstract_token_transfer import build_abstract_token_transfer
+from etl.abstract.build_abstract_token import build_abstract_token
+from etl.abstract.build_abstract_account import build_abstract_account
+from etl.abstract.convert_abstract_csv_to_parquet import convert_csv_to_parquet
 
 def run_build_abstract(year, month, chain_name="ethereum"):
+    """
+    Run all abstract builders for a given year/month.
+
+    Assumes this file is located at: PROJECT_ROOT/etl
+    Data directories are under:      PROJECT_ROOT/data/...
+    """
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     # Define paths
@@ -52,3 +59,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_build_abstract(args.year, args.month, args.chain_name)
+    convert_csv_to_parquet(args.year, args.month, args.chain_name)

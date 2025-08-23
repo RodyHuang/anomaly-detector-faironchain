@@ -34,9 +34,9 @@ def preprocess_transactions(input_path, output_path):
     def is_valid_block_number(val, max_block=999_999_999):
         try:
             val_str = str(val).strip()
-            if val_str.lower().startswith("0x") or not val_str.isdigit() or len(val_str) > 20:
+            if val_str.lower().startswith("0x") or len(val_str) > 20:
                 return False
-            num = int(val_str)
+            num = int(float(val_str))
             return 10_000 <= num <= max_block
         except:
             return False

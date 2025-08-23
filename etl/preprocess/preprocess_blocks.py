@@ -23,9 +23,10 @@ def preprocess_blocks(input_path, output_path):
     def is_valid_block_number(val, max_block=999_999_999):
         try:
             val_str = str(val).strip()
-            if val_str.lower().startswith("0x") or not val_str.isdigit() or len(val_str) > 20:
+            if val_str.lower().startswith("0x") or len(val_str) > 20:
                 return False
-            num = int(val_str)
+            
+            num = int(float(val_str))
             return 10_000 <= num <= max_block
         except:
             return False
@@ -48,11 +49,15 @@ def preprocess_blocks(input_path, output_path):
     df["block_hash"] = df["block_hash"].str.strip().str.lower()
     print(f"Block hash cleaned: {before_bh - len(df)} rows removed")
 
-    # timestamp: assume epoch seconds
+    # timetamp: assume epoch second
     before_ts = len(df)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", errors="coerce")
+
+    df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
+    removed = before_ts - df["timestamp"].notna().sum()
     df = df.dropna(subset=["timestamp"])
-    print(f"Timestamp cleaned: {before_ts - len(df)} rows removed")
+    print(f"Timestamp cleaned: {removed} rows removed")
+    
+    df["timestamp"] = df["timestamp"].astype("int64")
 
     # chain_id to int
     df["chain_id"] = df["chain_id"].astype(int)
