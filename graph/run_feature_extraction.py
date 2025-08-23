@@ -8,7 +8,7 @@ from extract_motif_features import extract_motif_features
 from extract_egonet_features import extract_egonet_features
 
 def get_graph_path(base_dir, chain, year, month):
-    return os.path.join(
+    return os.path.join(    
         base_dir, "data", "output", "graph", chain, f"{year:04d}", f"{month:02d}",
         f"{chain}__token_transfer_graph__{year}_{month:02d}.pkl"
     )
@@ -51,7 +51,7 @@ def run_feature_extraction(graph_path: str, year: int, month: int):
     df_features["address"] = df_features["node"].map(lambda i: g.vs[i]["name"])
     df_features["address"] = df_features["address"].str.split("_").str[-1].str.lower()
 
-     # === Add is_infra flag
+    # === Add is_infra flag
     whitelist_df = pd.read_csv(whitelist_path)
     whitelist_set = set(whitelist_df["address"].str.strip().str.lower())
     df_features["is_infra"] = df_features["address"].apply(lambda addr: 1 if addr in whitelist_set else 0)

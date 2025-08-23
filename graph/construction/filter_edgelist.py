@@ -21,7 +21,9 @@ def filter_edgelist(df, min_amount_wei=1_000_000_000_000):
         Filtered DataFrame
     """
     before = len(df)
-    
+
+    df["amount"] = df["amount"].apply(int)
+
     # Minimum amount filter ( amount < 1e-6 ETH)
     df = df[df["amount"] >= min_amount_wei]
     

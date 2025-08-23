@@ -6,10 +6,9 @@ def load_clean_edgelist(year, month, chain_name="ethereum"):
     Load and merge abstract token transfer data with timestamp to build a base edgelist.
     
     Returns:
-        DataFrame with columns:
-            from_address_sid, to_address_sid, amount, token_sid, tx_sid, timestamp
+        DataFrame with columns: from_address_sid, to_address_sid, amount, token_sid, tx_sid, timestamp
     """
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     abstract_dir = os.path.join(base_dir, "data", "intermediate", "abstract", chain_name, f"{year:04d}", f"{month:02d}")
 
     # Load tables

@@ -17,47 +17,61 @@ def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFram
     """
     # === Load whitelist
     whitelist_set = load_whitelist_addresses(whitelist_path) if whitelist_path else set()
-   
+
     # === Ensure the 'label' column exists so it can be matched with the whitelist
     ensure_label_column(g)
 
-    # === Build a mapping from address label (string) to vertex ID
+    # === Build a mapping from address label to vertex ID
     address_to_vid = {v["label"]: v.index for v in g.vs}
 
-    # === Convert whitelisted addresses to vertex IDs set, only if they exist in the graph
+    # === Map whitelisted addresses to vertex IDs
+    #     These infra nodes will be skipped in egonet feature calculation
     skip_vids = set(address_to_vid[a] for a in whitelist_set if a in address_to_vid)
 
-    rows = []
+    N = g.vcount()
 
-    for v in tqdm(g.vs, desc="🧠 Extracting Egonet Features"):
-        vid = v.index
-        if vid in skip_vids:
+    # Precompute adjacency sets for all nodes:
+    #   neighbors_all[v] = all neighbors of v (in + out)
+    #   neighbors_out[v] = outgoing neighbors of v
+    # Doing this once avoids repeated g.neighbors() calls inside the loop
+    neighbors_all = [set(g.neighbors(v, mode="ALL")) for v in range(N)]
+    neighbors_out = [set(g.neighbors(v, mode="OUT")) for v in range(N)]
+
+    rows = []
+    for vid in tqdm(range(N), desc="🧠 Extracting Egonet Features (fast)"):
+        if vid in skip_vids: # Skip whitelist center nodes
             rows.append({
                 "node": vid,
                 "egonet_node_count": None,
                 "egonet_edge_count": None,
                 "egonet_density": None
             })
-            continue  # Skip whitelist center nodes
+            continue  
 
-        # === 1-hop neighbors (ALL directions), excluding whitelisted
-        ego_nodes = {
-            n for n in g.neighbors(vid, mode="ALL")
-            if n not in skip_vids
-        }
-        ego_nodes.add(vid)  # Add self
-        
-        # === Induced subgraph
-        ego_subgraph = g.subgraph(ego_nodes)
-        
-        # remove self-loops and merge parallel edges
-        ego_simple = ego_subgraph.copy()
-        ego_simple.simplify(multiple=True, loops=True)  # drops loops; merges multiedges
-        
-        n = ego_simple.vcount()
-        m = ego_simple.ecount()
-        max_edges = n * (n - 1)  # directed
-        density = m / max_edges if max_edges > 0 else 0
+        # 1-hop ego nodes (all directions), exclude whitelist, and include the node itself
+        ego_nodes = {n for n in neighbors_all[vid] if n not in skip_vids}
+        ego_nodes.add(vid)
+
+        n = len(ego_nodes)
+    
+        # Count the number of unique directed edges inside the egonet:
+        # For each node u in the egonet:
+        #   1. Look at all its outgoing neighbors (out_u).
+        #   2. Keep only those neighbors that are also inside the egonet (excluding u itself).
+        #   3. Count them (this is the number of directed edges from u to other ego nodes).
+        # Summing over all u gives the total number of directed edges m inside the egonet.
+        m = 0
+        for u in ego_nodes:
+            out_u = neighbors_out[u]
+            # Restrict neighbors to nodes inside egonet
+            m_u = len(out_u & ego_nodes)
+            # Remove self-loop if present
+            if u in out_u:
+                m_u -= 1
+            m += m_u
+
+        max_edges = n * (n - 1)  # directed simple graph
+        density = m / max_edges if max_edges > 0 else 0.0
 
         rows.append({
             "node": vid,

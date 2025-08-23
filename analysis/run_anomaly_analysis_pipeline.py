@@ -36,6 +36,15 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     df_infra = df[df["is_infra"] == 1].copy()
     df_non_infra = df[df["is_infra"] == 0].copy()
 
+    num_cols = [
+    "total_input_amount", "total_output_amount",
+    "unique_in_degree", "unique_out_degree",
+    "two_node_loop_amount", "two_node_loop_tx_count",
+    "triangle_loop_amount", "triangle_loop_tx_count"
+    ]
+    present = [c for c in num_cols if c in df_non_infra.columns]
+    df_non_infra[present] = df_non_infra[present].apply(pd.to_numeric, errors="coerce").fillna(0)
+    
     # === 1: Rule-based anomaly detection ===
     thresholds = compute_thresholds(df_non_infra, [
         "unique_in_degree", "unique_out_degree",

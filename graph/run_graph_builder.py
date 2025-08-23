@@ -1,11 +1,10 @@
 import argparse
 import pickle
 import os
-from pathlib import Path
 
-from load_clean_edgelist import load_clean_edgelist
-from filter_edgelist import filter_edgelist
-from build_token_transfer_graph import build_igraph_from_edgelist
+from construction.load_clean_edgelist import load_clean_edgelist
+from construction.filter_edgelist import filter_edgelist
+from construction.build_token_transfer_graph import build_igraph_from_edgelist
 
 def run_graph_builder(year: int, month: int):
     # === 1. Load raw edgelist ===
@@ -22,7 +21,7 @@ def run_graph_builder(year: int, month: int):
     edgelist_filename = f"ethereum__token_transfer_edgelist__{year}_{month:02d}.parquet"
     edgelist_path = os.path.join(edgelist_dir, edgelist_filename)
 
-    df_filtered.to_parquet(edgelist_path, index=False)
+    df_filtered.assign(amount=df_filtered["amount"].astype("string")).to_parquet(edgelist_path, index=False)
     print(f"📄 Saved filtered edgelist to {edgelist_path}")
 
     # === 4. Build graph ===
