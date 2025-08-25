@@ -4,90 +4,97 @@ import os
 from typing import List
 
 base_dir = r"C:\Users\rodyh\Desktop\FairOnChain\Code\whale-anomaly-detector-faironchain\data\output\graph\ethereum\2023\02"
-file1 = os.path.join(base_dir, "ethereum__features__2023_02_0.csv")
-file2 = os.path.join(base_dir, "ethereum__features__2023_02.csv")
+file1 = os.path.join(base_dir, "ethereum__features__2023_02_0.csv")  # 舊命名版
+file2 = os.path.join(base_dir, "ethereum__features__2023_02.csv")    # 新命名版
 
-TARGET_COLS: List[str] = ["egonet_node_count", "egonet_edge_count", "egonet_density"]
-CANDIDATE_KEYS: List[str] = [
-    "account_sid","address_sid","account_id","vertex_id","node_id",
-    "address","label","account","id"
-]
-
-def pick_key(path1, path2, candidates):
-    cols1 = set(pd.read_csv(path1, nrows=0).columns)
-    cols2 = set(pd.read_csv(path2, nrows=0).columns)
+# 自動找對齊鍵
+CANDIDATE_KEYS: List[str] = ["node","node_id","account_sid","address","vertex_id","id"]
+def pick_key(p1, p2, candidates):
+    c1 = set(pd.read_csv(p1, nrows=0).columns)
+    c2 = set(pd.read_csv(p2, nrows=0).columns)
     for k in candidates:
-        if k in cols1 and k in cols2:
+        if k in c1 and k in c2:
             return k
-    raise RuntimeError("找不到可共同對齊的鍵欄位，請確認兩檔共有的唯一ID（如 account_sid / address / vertex_id 等）。")
+    raise RuntimeError("找不到共同鍵欄位，請確認兩檔共有的唯一ID（如 node）。")
 
 key = pick_key(file1, file2, CANDIDATE_KEYS)
 print(f"√ 對齊鍵：{key}")
 
-usecols = [key] + TARGET_COLS
+# 讀完整欄位
+df_old = pd.read_csv(file1)
+df_new = pd.read_csv(file2)
 
-# 只載需要的欄位並確保型別
-df1 = pd.read_csv(file1, usecols=lambda c: c in usecols)
-df2 = pd.read_csv(file2, usecols=lambda c: c in usecols)
+# 先去重
+df_old = df_old.drop_duplicates(subset=[key])
+df_new = df_new.drop_duplicates(subset=[key])
 
-# 去重（保留第一筆）
-df1 = df1.drop_duplicates(subset=[key])
-df2 = df2.drop_duplicates(subset=[key])
+# 針對舊檔 → 新檔的欄位對齊（你說的對應關係）
+rename_map = {
+    "in_degree": "in_transfer_count",
+    "out_degree": "out_transfer_count",
+    "unique_in_degree": "in_degree",
+    "unique_out_degree": "out_degree",
+}
+# 只改舊檔欄位名
+df_old = df_old.rename(columns={k:v for k,v in rename_map.items() if k in df_old.columns})
 
-# 轉成數值（非數值變 NaN），避免字串/型別不一致
-for c in TARGET_COLS:
-    if c in df1: df1[c] = pd.to_numeric(df1[c], errors="coerce")
-    if c in df2: df2[c] = pd.to_numeric(df2[c], errors="coerce")
+# 只比共同鍵的交集列，避免 NaN 干擾
+both = set(df_old[key]) & set(df_new[key])
+df_old = df_old[df_old[key].isin(both)].set_index(key).sort_index()
+df_new = df_new[df_new[key].isin(both)].set_index(key).sort_index()
 
-# 基本統計
-only1 = set(df1[key]) - set(df2[key])
-only2 = set(df2[key]) - set(df1[key])
-both = set(df1[key]) & set(df2[key])
+# 欄位集合對齊（缺誰就補誰為 NaN），確保能逐格比較
+all_cols = sorted(set(df_old.columns) | set(df_new.columns))
+for c in all_cols:
+    if c not in df_old.columns:
+        df_old[c] = np.nan
+    if c not in df_new.columns:
+        df_new[c] = np.nan
 
-print(f"檔案1筆數: {len(df1):,} | 檔案2筆數: {len(df2):,}")
-print(f"共同鍵數: {len(both):,}")
-print(f"只在檔案1: {len(only1):,} | 只在檔案2: {len(only2):,}")
+df_old = df_old[all_cols]
+df_new = df_new[all_cols]
 
-# 只比對共同鍵，避免無意義的 NaN
-df1c = df1[df1[key].isin(both)].set_index(key).sort_index()
-df2c = df2[df2[key].isin(both)].set_index(key).sort_index()
+# 型別寬鬆統一（把能轉數值的都轉數值，其他保持字串），避免 '1' vs 1 的假差異
+def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for c in out.columns:
+        # 嘗試轉數值；全 NaN 就維持原狀
+        s = pd.to_numeric(out[c], errors="coerce")
+        if s.notna().sum() > 0 or out[c].isna().all():
+            out[c] = s
+        else:
+            out[c] = out[c].astype(str)
+    return out
 
-merged = df1c.join(df2c, how="inner", lsuffix="_1", rsuffix="_2")
+df_old_n = normalize_df(df_old)
+df_new_n = normalize_df(df_new)
 
-# 比對：整數欄位用相等，浮點欄位用 isclose
-def compare_series(s1, s2, float_tolerance=True):
-    if float_tolerance:
-        return np.isclose(s1.to_numpy(dtype="float64"),
-                          s2.to_numpy(dtype="float64"),
-                          rtol=1e-9, atol=1e-12, equal_nan=True)
-    else:
-        return (s1.values == s2.values) | (pd.isna(s1.values) & pd.isna(s2.values))
+# 先用 equals 快速檢查
+if df_old_n.equals(df_new_n):
+    print("🎉 兩檔內容在對齊命名後完全一致（含 NaN 位置與所有欄位）")
+else:
+    print("⚠️ 發現差異，統計如下：")
+    diff_mask = (df_old_n != df_new_n) & ~(df_old_n.isna() & df_new_n.isna())
+    total_diff = int(diff_mask.to_numpy().sum())
+    row_diff = int(diff_mask.any(axis=1).sum())
+    col_diff = int(diff_mask.any(axis=0).sum())
+    print(f"- 不同的儲存格數：{total_diff:,}")
+    print(f"- 涉及的列數量：{row_diff:,}")
+    print(f"- 涉及的欄位數量：{col_diff:,}")
 
-results = {}
-for col in TARGET_COLS:
-    col1, col2 = f"{col}_1", f"{col}_2"
-    if col not in ["egonet_density"]:
-        eq_mask = compare_series(merged[col1], merged[col2], float_tolerance=False)
-    else:
-        eq_mask = compare_series(merged[col1], merged[col2], float_tolerance=True)
-    results[col] = eq_mask
+    # 各欄位不一致數
+    print("\n各欄位不一致數：")
+    per_col = diff_mask.sum(axis=0).sort_values(ascending=False)
+    print(per_col[per_col > 0].to_string())
 
-all_equal_mask = np.logical_and.reduce(list(results.values()))
-equal_count = int(all_equal_mask.sum())
-diff_count = int((~all_equal_mask).sum())
-
-print("\n=== 比對結果（只看共同鍵） ===")
-print(f"完全相同的列數：{equal_count:,}")
-print(f"有差異的列數：{diff_count:,}")
-
-# 各欄位的不一致數
-for col, mask in results.items():
-    ne = int((~mask).sum())
-    print(f"- {col} 不一致：{ne:,}")
-
-if diff_count > 0:
-    print("\n前 10 筆差異（含鍵與兩邊數值）:")
-    diff_rows = merged.loc[~all_equal_mask, [c for col in TARGET_COLS for c in (f"{col}_1", f"{col}_2")]]
-    # 把 index（鍵）帶回來看
-    preview = diff_rows.reset_index().head(10)
+    # 列出前 10 列差異（附兩邊值）
+    preview = pd.concat(
+        [df_old_n[diff_mask.any(axis=1)].add_suffix("_old"),
+         df_new_n[diff_mask.any(axis=1)].add_suffix("_new")],
+        axis=1
+    ).reset_index().head(10)
+    print("\n前 10 筆差異：")
     print(preview.to_string(index=False))
+
+    # 可選：輸出完整差異預覽
+    preview.to_csv(os.path.join(base_dir, "diff_preview_after_rename.csv"), index=False)

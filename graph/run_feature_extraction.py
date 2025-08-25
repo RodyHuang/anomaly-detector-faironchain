@@ -3,17 +3,28 @@ import argparse
 import pickle
 import pandas as pd
 
-from extract_node_features import extract_node_features
-from extract_motif_features import extract_motif_features
-from extract_egonet_features import extract_egonet_features
+from feature.extract_node_features import extract_node_features
+from feature.extract_motif_features import extract_motif_features
+from feature.extract_egonet_features import extract_egonet_features
 
 def get_graph_path(base_dir, chain, year, month):
+    """
+    Build the expected path to the aggregated igraph pickle for a given chain/ym.
+    """
     return os.path.join(    
         base_dir, "data", "output", "graph", chain, f"{year:04d}", f"{month:02d}",
         f"{chain}__token_transfer_graph__{year}_{month:02d}.pkl"
     )
 
 def run_feature_extraction(graph_path: str, year: int, month: int):
+    """
+    End-to-end feature extraction pipeline:
+      1) Load aggregated graph pickle (g, account_to_idx).
+      2) Compute node-level, motif-level, and egonet-level features (whitelist-respecting).
+      3) Merge all features by node id.
+      4) Add address / metadata columns (is_infra, chain_id, year, month).
+      5) Save a single CSV per (chain, year, month).
+    """
     print(f"📥 Loading graph from {graph_path} ...")
     with open(graph_path, "rb") as f:
         g, account_to_idx = pickle.load(f)
@@ -51,7 +62,7 @@ def run_feature_extraction(graph_path: str, year: int, month: int):
     df_features["address"] = df_features["node"].map(lambda i: g.vs[i]["name"])
     df_features["address"] = df_features["address"].str.split("_").str[-1].str.lower()
 
-    # === Add is_infra flag
+    # === Add is_infra flag from whitelist
     whitelist_df = pd.read_csv(whitelist_path)
     whitelist_set = set(whitelist_df["address"].str.strip().str.lower())
     df_features["is_infra"] = df_features["address"].apply(lambda addr: 1 if addr in whitelist_set else 0)
@@ -61,7 +72,7 @@ def run_feature_extraction(graph_path: str, year: int, month: int):
     df_features["year"] = year
     df_features["month"] = month
 
-    # === Reorder columns: node, address, is_infra, chain_id, year, month, ...others
+    # === Reorder columns for readability: metadata first, then features ===
     front_cols = ["node", "address", "is_infra", "chain_id", "year", "month"]
     cols = front_cols + [col for col in df_features.columns if col not in front_cols]
     df_final = df_features[cols]

@@ -14,19 +14,20 @@ def filter_edgelist(df, min_amount_wei=1_000_000_000_000):
     - Removing blacklist accounts
     
     Parameters:
-        df (DataFrame): Raw edgelist DataFrame
+        df (pd.DataFrame): Raw edgelist DataFrame
         min_amount_wei (int): Minimum transfer amount (in wei)
     
     Returns:
-        Filtered DataFrame
+        pd.DataFrame: Filtered edgelist
     """
     before = len(df)
 
+    # Normalize amount to integer
     df["amount"] = df["amount"].apply(int)
 
     # Minimum amount filter ( amount < 1e-6 ETH)
     df = df[df["amount"] >= min_amount_wei]
-    
+
     # Blacklist filter
     df = df[
         (~df["from_address_sid"].isin(ADDRESS_BLACKLIST)) &

@@ -1,7 +1,7 @@
 import pandas as pd
 from igraph import Graph
 from tqdm import tqdm
-from graph_utils import ensure_label_column, load_whitelist_addresses
+from feature.graph_utils import load_whitelist_addresses
 
 def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
     """
@@ -14,12 +14,16 @@ def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFram
 
     Returns:
         pd.DataFrame: Egonet features indexed by node ID
+    
+    Definitions:
+        - egonet_node_count (n): |ego(v)|
+        - egonet_edge_count (m): number of directed edges whose both endpoints lie in ego(v),
+                                 excluding self-loops
+        - egonet_density: m / [n * (n - 1)]  (density of a simple directed graph without self-loops)
+
     """
     # === Load whitelist
     whitelist_set = load_whitelist_addresses(whitelist_path) if whitelist_path else set()
-
-    # === Ensure the 'label' column exists so it can be matched with the whitelist
-    ensure_label_column(g)
 
     # === Build a mapping from address label to vertex ID
     address_to_vid = {v["label"]: v.index for v in g.vs}

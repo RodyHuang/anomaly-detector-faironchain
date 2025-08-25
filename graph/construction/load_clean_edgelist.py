@@ -3,10 +3,23 @@ import pandas as pd
 
 def load_clean_edgelist(year, month, chain_name="ethereum"):
     """
-    Load and merge abstract token transfer data with timestamp to build a base edgelist.
-    
+    Load transfer / transaction / block tables for a given (year, month),
+    and join them to produce a clean edgelist for graph construction.
+
+    Parameters:
+        year (e.g., 2023)
+        month (1–12)
+        chain_name (str, default="ethereum")
+
     Returns:
-        DataFrame with columns: from_address_sid, to_address_sid, amount, token_sid, tx_sid, timestamp
+        pd.DataFrame with columns:
+            - transfer_sid
+            - from_address_sid
+            - to_address_sid
+            - amount
+            - token_sid
+            - tx_sid
+            - timestamp
     """
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     abstract_dir = os.path.join(base_dir, "data", "intermediate", "abstract", chain_name, f"{year:04d}", f"{month:02d}")
@@ -27,14 +40,24 @@ def load_clean_edgelist(year, month, chain_name="ethereum"):
     # Merge transfer → tx to get block_sid
     merged = df_transfer.merge(df_tx[["tx_sid", "block_sid"]], on="tx_sid", how="left")
 
+    # Safety check: count transfers missing a matching tx (should be 0)
+    _missing_tx = merged["block_sid"].isna().sum()
+    if _missing_tx:
+        print(f"⚠️ { _missing_tx:, } transfers have no matching tx_sid (block_sid is NaN).")
+
     # Merge to get timestamp
     merged = merged.merge(df_block[["block_sid", "timestamp"]], on="block_sid", how="left")
 
-    # Select and reorder needed columns
+    # Safety check: count missing timestamps (should be 0)
+    _missing_ts = merged["timestamp"].isna().sum()
+    if _missing_ts:
+        print(f"⚠️ { _missing_ts:, } transfers have no block timestamp (timestamp is NaN).")
+
+    # Select and rename to the final edgelist schema
     edgelist_df = merged[[
         "transfer_sid",
-        "spender_address_sid",     # from
-        "receiver_address_sid",    # to
+        "spender_address_sid",     
+        "receiver_address_sid",    
         "amount",
         "token_sid",
         "tx_sid",

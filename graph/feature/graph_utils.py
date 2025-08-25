@@ -28,9 +28,7 @@ def ensure_label_column(g: Graph) -> None:
 
 def build_filtered_adjacent_list_and_edges(out_neighbors: dict[int, set[int]], skip_vids: set[int]) -> tuple[dict[int, set[int]], set[tuple[int, int]]]:
     """
-    From the full out-neighbors and whitelist (skip_vids), build:
-        - a filtered adjacency list (excluding any node in skip_vids)
-        - a filtered edge set (u, v) where both u and v are not in skip_vids
+    Build a whitelist-filtered adjacency list and the corresponding edge set
 
     Parameters:
         out_neighbors (dict): Mapping of node ID to out-neighbor set
@@ -38,18 +36,21 @@ def build_filtered_adjacent_list_and_edges(out_neighbors: dict[int, set[int]], s
 
     Returns:
         Tuple:
-            - filtered_out_neighbors: dict[int, set[int]]
-            - filtered_edge: set[tuple[int, int]]
+            - filtered_out_neighbors: dict[u] -> set of v where (u -> v) exists AND u,v ∉ skip_vids
+            - filtered_edge: set of (u, v) edges consistent with filtered_out_neighbors
     """
     filtered_out_neighbors = defaultdict(set)
 
     for u, neighbors in out_neighbors.items():
         if u in skip_vids:
             continue
+            
+        # Keep only neighbors not in skip_vids
         filtered_out_neighbors[u] = {
             v for v in neighbors if v not in skip_vids
         }
-
+        
+    # Edge set derived from the filtered adjacency
     filtered_edge = {
         (u, v) for u, neighbors in filtered_out_neighbors.items()
         for v in neighbors
