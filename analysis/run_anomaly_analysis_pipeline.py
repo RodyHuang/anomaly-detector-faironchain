@@ -1,12 +1,11 @@
 import os
 import argparse
 import pandas as pd
-import numpy as np 
-import matplotlib.pyplot as plt
-from rule_based_anomaly_detection import compute_thresholds, apply_all_rules
-from statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
-from unsupervised_learning_anomaly_detection import fit_iforest_and_score  
-from scoring import score_rule_based, score_statistical_percentile,score_iforest_percentile, combine_scores
+
+from detectors.rule_based_anomaly_detection import compute_thresholds, apply_all_rules
+from detectors.statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
+from detectors.unsupervised_learning_anomaly_detection import fit_iforest_and_score  
+from scoring.scoring import score_rule_based, score_statistical_percentile,score_iforest_percentile, combine_scores
 
 def get_input_path(base_dir, chain, year, month):
     return os.path.join(
@@ -38,7 +37,7 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
 
     num_cols = [
     "total_input_amount", "total_output_amount",
-    "unique_in_degree", "unique_out_degree",
+    "in_degree", "out_degree",
     "two_node_loop_amount", "two_node_loop_tx_count",
     "triangle_loop_amount", "triangle_loop_tx_count"
     ]
@@ -47,12 +46,13 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     
     # === 1: Rule-based anomaly detection ===
     thresholds = compute_thresholds(df_non_infra, [
-        "unique_in_degree", "unique_out_degree",
+        "in_degree", "out_degree",
         "two_node_loop_amount", "two_node_loop_tx_count",
         "triangle_loop_amount", "triangle_loop_tx_count"
     ], ignore_zeros_columns=[
-    "two_node_loop_amount", "two_node_loop_tx_count",
-    "triangle_loop_amount", "triangle_loop_tx_count"
+        # Excluding zeros for heavy-tailed amount/count metrics
+        "two_node_loop_amount", "two_node_loop_tx_count",
+        "triangle_loop_amount", "triangle_loop_tx_count"
     ])
 
     df_non_infra = apply_all_rules(df_non_infra, thresholds)
@@ -61,7 +61,7 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     df_non_infra = preprocess_features(df_non_infra)
 
     statistical_features = [
-        "unique_in_degree_log_z", "unique_out_degree_log_z",
+        "in_degree_log_z", "out_degree_log_z",
         "total_input_amount_log_z", "total_output_amount_log_z",
         "two_node_loop_count_log_z", "triangle_loop_count_log_z",
         "log_degree_ratio_z", "log_amount_ratio_z",
@@ -82,11 +82,12 @@ def run_anomaly_analysis_pipeline(chain: str, year: int, month: int):
     df_non_infra = score_rule_based(df_non_infra)
     df_non_infra = score_statistical_percentile(df_non_infra)   # uses 'mahalanobis_distance'
     df_non_infra = score_iforest_percentile(df_non_infra)       # uses 'iforest_score'
-    df_non_infra = combine_scores(df_non_infra)                  # makes 'final_score_0_100'
+    df_non_infra = combine_scores(df_non_infra)                 # makes 'final_score_0_100'
 
     # === 5: Merge and restore original order ===
     df_combined = pd.concat([df_non_infra, df_infra], axis=0)
     df_combined = df_combined.sort_values("original_index").drop(columns=["original_index"])
+
     # === Drop *_log, *_z, and *_ratio columns unless needed ===
     drop_cols = [
         col for col in df_combined.columns

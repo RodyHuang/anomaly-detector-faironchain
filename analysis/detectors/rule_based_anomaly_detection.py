@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import os
 
 def compute_thresholds(df: pd.DataFrame, columns: list[str], ignore_zeros_columns: list[str] = None, quantile: float = 0.99) -> dict:
     """
@@ -33,16 +32,17 @@ def apply_H1_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     Apply H1 anomaly rule: 'Multi-source inflow aggregation account with limited outflow'
 
     Criteria:
-        - unique_in_degree ≥ top 1%
-        - unique_out_degree ≤ 3
+        - in_degree ≥ top 1%          
+        - out_degree ≤ 3              
         - |total_input_amount - total_output_amount| / total_input_amount ≤ 0.05
 
     Returns:
         DataFrame with new cols of H1_flag and H1_description.
     """
-    unique_in_deg_threshold = thresholds["unique_in_degree"]
+    # Uses threshold on unique inbound degree
+    in_deg_threshold = thresholds["in_degree"]
 
-    # Safe computation of relative difference
+    # Safe computation of relative difference; NaN when total_input_amount == 0 yields no flag.
     safe_ratio = np.where(
         df["total_input_amount"] > 0,
         np.abs(df["total_input_amount"] - df["total_output_amount"]) / df["total_input_amount"],
@@ -51,8 +51,8 @@ def apply_H1_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 
     # Apply rule logic
     df["H1_flag"] = (
-        (df["unique_in_degree"] >= unique_in_deg_threshold) &
-        (df["unique_out_degree"] <= 3) &
+        (df["in_degree"] >= in_deg_threshold) &
+        (df["out_degree"] <= 3) &
         (safe_ratio <= 0.05)
     ).astype(int)
 
@@ -71,17 +71,17 @@ def apply_H2_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     Apply H2 anomaly rule: 'Multi-source inflow aggregation account with zero outflow'
 
     Criteria:
-        - unique_in_degree ≥ top 1%
-        - unique_out_degree == 0
+        - in_degree ≥ top 1%
+        - out_degree == 0
 
     Returns:
         DataFrame with H2_flag and H2_description added.
     """
-    unique_in_deg_threshold = thresholds["unique_in_degree"]
+    in_deg_threshold = thresholds["in_degree"]
 
     df["H2_flag"] = (
-        (df["unique_in_degree"] >= unique_in_deg_threshold) &
-        (df["unique_out_degree"] == 0)
+        (df["in_degree"] >= in_deg_threshold) &
+        (df["out_degree"] == 0)
     ).astype(int)
 
     df["H2_description"] = df["H2_flag"].apply(
@@ -98,17 +98,17 @@ def apply_H3_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     Apply H3 anomaly rule: 'Single-inflow account with high-diversity outflow'
 
     Criteria:
-        - unique_in_degree == 1
-        - unique_out_degree ≥ top 1%
+        - in_degree == 1
+        - out_degree ≥ top 1%
 
     Returns:
         DataFrame with H3_flag and H3_description added.
     """
-    unique_out_deg_threshold = thresholds["unique_out_degree"]
+    out_deg_threshold = thresholds["out_degree"]
 
     df["H3_flag"] = (
-        (df["unique_in_degree"] == 1) &
-        (df["unique_out_degree"] >= unique_out_deg_threshold)
+        (df["in_degree"] == 1) &
+        (df["out_degree"] >= out_deg_threshold)
     ).astype(int)
 
     df["H3_description"] = df["H3_flag"].apply(
@@ -125,15 +125,15 @@ def apply_H4_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
     Apply H4 anomaly rule: 'High-diversity inflow and outflow with minimal retention'
 
     Criteria:
-        - unique_in_degree ≥ top 1%
-        - unique_out_degree ≥ top 1%
+        - in_degree ≥ top 1%
+        - out_degree ≥ top 1%
         - |total_input_amount - total_output_amount| / total_input_amount ≤ 0.05
 
     Returns:
         DataFrame with H4_flag and H4_description added.
     """
-    unique_in_deg_threshold = thresholds["unique_in_degree"]
-    unique_out_deg_threshold = thresholds["unique_out_degree"]
+    in_deg_threshold = thresholds["in_degree"]
+    out_deg_threshold = thresholds["out_degree"]
 
     # Safe computation of relative difference
     safe_ratio = np.where(
@@ -144,8 +144,8 @@ def apply_H4_rule(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 
     # Apply rule logic
     df["H4_flag"] = (
-        (df["unique_in_degree"] >= unique_in_deg_threshold) &
-        (df["unique_out_degree"] >= unique_out_deg_threshold) &
+        (df["in_degree"] >= in_deg_threshold) &
+        (df["out_degree"] >= out_deg_threshold) &
         (safe_ratio <= 0.05)
     ).astype(int)
 

@@ -96,4 +96,11 @@ def combine_scores(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     cols = ["rule_score_100", "mahalanobis_distance_stats_score_100", "iforest_stats_score_100"]
     df["final_score_0_100"] = df[cols].mean(axis=1)
+
+    # === Calculate Top % ranking ===
+    n = len(df)
+    ranks_desc = df["final_score_0_100"].rank(method="average", ascending=False)
+    df["final_score_top_percent"] = (ranks_desc / n * 100).round(2).astype(np.float32)
+    df["final_score_top_percent_display"] = df["final_score_top_percent"].map(lambda x: f"Top {x:.2f}%")
+
     return df

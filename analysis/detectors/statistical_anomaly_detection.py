@@ -9,12 +9,6 @@ def zscore(series: pd.Series) -> pd.Series:
 
     Formula:
         z = (x - mean) / std
-
-    Parameters:
-        Input pd.Series
-
-    Returns:
-        Transformed pd.Series
     """
     mean = series.mean()
     std = series.std()
@@ -28,13 +22,19 @@ def preprocess_features(df: pd.DataFrame) -> pd.DataFrame:
     - Create log-ratio features
     - Apply z-score to all transformed columns
 
+    Expected input columns (renamed):
+        - in_degree, out_degree            
+        - total_input_amount, total_output_amount
+        - two_node_loop_count, triangle_loop_count
+        - egonet_density          
+
     Returns:
         DataFrame with added processed feature columns.
     """
     
     # === Step 1: Log(x+1) transformed features
     base_log_features = [
-        'unique_in_degree', 'unique_out_degree',
+        'in_degree', 'out_degree',
         'total_input_amount', 'total_output_amount',
         'two_node_loop_count', 'triangle_loop_count'
     ]
@@ -42,7 +42,7 @@ def preprocess_features(df: pd.DataFrame) -> pd.DataFrame:
         df[f'{col}_log'] = np.log1p(df[col])
     
     # === Step 2: Log-ratio features
-    df['log_degree_ratio'] = np.log((df['unique_in_degree'] + 1) / (df['unique_out_degree'] + 1))
+    df['log_degree_ratio'] = np.log((df['in_degree'] + 1) / (df['out_degree'] + 1))
     df['log_amount_ratio'] = np.log((df['total_input_amount'] + 1) / (df['total_output_amount'] + 1))
 
     # === Step 3: Features to apply z-score
@@ -68,11 +68,15 @@ def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> p
     Returns:
         pd.DataFrame: The original DataFrame with an added 'mahalanobis_distance' column.
     """
+    # Extract data matrix
     data = df[feature_cols].values
+
+    # Mean and covariance of the selected features.
     mean_vec = np.mean(data, axis=0)
     cov_matrix = np.cov(data, rowvar=False)
     inv_cov = inv(cov_matrix)
 
+    # Compute Mahalanobis distance for each row relative to the mean.
     dists = [mahalanobis(row, mean_vec, inv_cov) for row in data]
     df["mahalanobis_distance"] = dists
 
