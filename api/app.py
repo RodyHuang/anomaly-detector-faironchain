@@ -85,12 +85,13 @@ def get_address():
         "address",
         "is_infra",
         "in_degree", "out_degree",
-        "unique_in_degree", "unique_out_degree",
+        "in_transfer_count", "out_transfer_count",
         "total_input_amount", "total_output_amount",
         "self_loop_count", "two_node_loop_count", "triangle_loop_count",
         "egonet_density",
         "rule_score_100", "mahalanobis_distance_stats_score_100",
         "iforest_stats_score_100", "final_score_0_100",
+        "final_score_top_percent_display",
     ]
     RULE_FLAG_COLS = [f"H{i}_flag" for i in range(1, 7)]
     RULE_DESC_COLS = [f"H{i}_description" for i in range(1, 7)]
@@ -155,8 +156,8 @@ def get_address():
             "degree": {
                 "in_degree": int(r["in_degree"]),
                 "out_degree": int(r["out_degree"]),
-                "unique_in_degree": int(r["unique_in_degree"]),
-                "unique_out_degree": int(r["unique_out_degree"]),
+                "in_transfer_count": int(r["in_transfer_count"]),
+                "out_transfer_count": int(r["out_transfer_count"]),
             },
             "amounts": {
                 "total_input_amount_eth": wei_to_eth(r["total_input_amount"]),
@@ -175,7 +176,8 @@ def get_address():
             "rule_score_100": round(float(r["rule_score_100"]), 1),
             "mahalanobis_stats_100": round(float(r["mahalanobis_distance_stats_score_100"]), 1),
             "iforest_stats_100": round(float(r["iforest_stats_score_100"]), 1),
-            "final_score_0_100": round(float(r["final_score_0_100"]), 1)
+            "final_score_0_100": round(float(r["final_score_0_100"]), 1),
+            "final_score_top_percent": r["final_score_top_percent_display"],
         },
         "explanations": {
             "rule_ids": [item["rule"] for item in pack_rules(r)],

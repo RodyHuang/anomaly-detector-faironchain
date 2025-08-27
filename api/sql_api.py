@@ -35,7 +35,12 @@ def register_sql_endpoint(app):
         """
 
         # --- Parse request payload ---
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        required = ("chain", "year", "month", "sql")
+        missing = [k for k in required if data.get(k) in (None, "")]
+        if missing:
+            return jsonify({"error": f"missing required fields: {', '.join(missing)}"}), 400
+        
         chain = (data.get("chain")).lower().strip()
         year = data.get("year")
         month = data.get("month")
