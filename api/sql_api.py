@@ -1,6 +1,6 @@
 import re, duckdb
 from flask import request, jsonify, Response
-from utils import build_month_parquet_path
+from api.utils import build_month_parquet_path
 
 def register_sql_endpoint(app):
     """

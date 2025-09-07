@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify
-from utils import wei_to_eth, build_month_parquet_path, query_duckdb, pack_rules
-from sql_api import register_sql_endpoint
+from api.utils import wei_to_eth, build_month_parquet_path, query_duckdb, pack_rules
+from api.sql_api import register_sql_endpoint
 
 app = Flask(__name__)
 # Prevent JSON output from reordering keys
