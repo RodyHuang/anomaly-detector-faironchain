@@ -1,7 +1,7 @@
 import pandas as pd
 from igraph import Graph
 from tqdm import tqdm
-from feature.graph_utils import load_whitelist_addresses
+from graph.feature.graph_utils import load_whitelist_addresses
 
 def extract_egonet_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
     """

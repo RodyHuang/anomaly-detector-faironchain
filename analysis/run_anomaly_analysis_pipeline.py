@@ -2,10 +2,10 @@ import os
 import argparse
 import pandas as pd
 
-from detectors.rule_based_anomaly_detection import compute_thresholds, apply_all_rules
-from detectors.statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
-from detectors.unsupervised_learning_anomaly_detection import fit_iforest_and_score  
-from scoring.scoring import score_rule_based, score_statistical_percentile,score_iforest_percentile, combine_scores
+from analysis.detectors.rule_based_anomaly_detection import compute_thresholds, apply_all_rules
+from analysis.detectors.statistical_anomaly_detection import preprocess_features, compute_mahalanobis_distance
+from analysis.detectors.unsupervised_learning_anomaly_detection import fit_iforest_and_score  
+from analysis.scoring.scoring import score_rule_based, score_statistical_percentile,score_iforest_percentile, combine_scores
 
 def get_input_path(base_dir, chain, year, month):
     return os.path.join(

@@ -2,9 +2,9 @@ import argparse
 import pickle
 import os
 
-from construction.load_clean_edgelist import load_clean_edgelist
-from construction.filter_edgelist import filter_edgelist
-from construction.build_token_transfer_graph import build_igraph_from_edgelist
+from graph.construction.load_clean_edgelist import load_clean_edgelist
+from graph.construction.filter_edgelist import filter_edgelist
+from graph.construction.build_token_transfer_graph import build_igraph_from_edgelist
 
 def run_graph_builder(year: int, month: int):
     """

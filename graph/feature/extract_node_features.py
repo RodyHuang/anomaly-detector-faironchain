@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from igraph import Graph
-from feature.graph_utils import load_whitelist_addresses
+from graph.feature.graph_utils import load_whitelist_addresses
 
 
 def extract_node_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
@@ -38,8 +38,8 @@ def extract_node_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:
                 "node": node_id,
                 "in_degree": np.nan,
                 "out_degree": np.nan,
-                "unique_in_degree": np.nan,
-                "unique_out_degree": np.nan,
+                "in_transfer_count": np.nan,
+                "out_transfer_count": np.nan,
                 "total_input_amount": np.nan,
                 "total_output_amount": np.nan,
                 "balance_proxy": np.nan

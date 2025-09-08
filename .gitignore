@@ -200,6 +200,7 @@ data/intermediate/
 data/output/
 *.csv
 
+
 # Exception: allow sample raw data for January 2023
-!data/raw/ethereum/blocks/2023/01/**
-!data/raw/ethereum/transfers/2023/01/**
+!data/raw/ethereum/blocks/2023/01/*
+!data/raw/ethereum/transfers/2023/01/*

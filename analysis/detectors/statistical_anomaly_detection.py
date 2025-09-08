@@ -60,6 +60,7 @@ def preprocess_features(df: pd.DataFrame) -> pd.DataFrame:
 def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
     """
     Compute Mahalanobis distance for each row based on selected feature columns.
+    Skip zero-variance (all-zero or constant) features.
 
     Parameters:
         df (pd.DataFrame): Input DataFrame with standardized features.
@@ -68,8 +69,21 @@ def compute_mahalanobis_distance(df: pd.DataFrame, feature_cols: list[str]) -> p
     Returns:
         pd.DataFrame: The original DataFrame with an added 'mahalanobis_distance' column.
     """
+    X = df[feature_cols].copy()
+
+    # Identify and drop zero-variance (all-zero or constant) features
+    zero_var_cols = [c for c in X.columns if X[c].nunique(dropna=True) <= 1]
+    if zero_var_cols:
+        print(f"[Info] Dropping zero-variance features: {zero_var_cols}")
+        X = X.drop(columns=zero_var_cols)
+    
+    if X.shape[1] == 0:
+        # If all features have zero variance, nothing can be computed
+        df["mahalanobis_distance"] = 0.0
+        return df
+
     # Extract data matrix
-    data = df[feature_cols].values
+    data = X.values
 
     # Mean and covariance of the selected features.
     mean_vec = np.mean(data, axis=0)

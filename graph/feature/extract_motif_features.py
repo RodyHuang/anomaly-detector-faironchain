@@ -2,7 +2,7 @@ import pandas as pd
 from igraph import Graph
 from collections import defaultdict
 from tqdm import tqdm
-from feature.graph_utils import load_whitelist_addresses, build_filtered_adjacent_list_and_edges
+from graph.feature.graph_utils import load_whitelist_addresses, build_filtered_adjacent_list_and_edges
 
 
 def extract_motif_features(g: Graph, whitelist_path: str = None) -> pd.DataFrame:

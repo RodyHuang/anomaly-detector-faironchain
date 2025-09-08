@@ -3,9 +3,9 @@ import argparse
 import pickle
 import pandas as pd
 
-from feature.extract_node_features import extract_node_features
-from feature.extract_motif_features import extract_motif_features
-from feature.extract_egonet_features import extract_egonet_features
+from graph.feature.extract_node_features import extract_node_features
+from graph.feature.extract_motif_features import extract_motif_features
+from graph.feature.extract_egonet_features import extract_egonet_features
 
 def get_graph_path(base_dir, chain, year, month):
     """
