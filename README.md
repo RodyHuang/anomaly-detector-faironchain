@@ -15,7 +15,7 @@ An open-source pipeline for **Ethereum token-transfer anomaly detection**, devel
   - [5. Anomaly Detection](#5-anomaly-detection)
   - [6. API Service](#6-api-service)
 - [Monthly Analysis Result Table](#monthly-analysis-result-table)
-- [Sample Data](#sample-data-optional)
+- [Sample Data](#sample-data)
 
 ---
 
@@ -187,3 +187,15 @@ WHERE H1_flag = 1
 ORDER BY final_score_0_100 DESC
 LIMIT 10;
 ```
+
+## Sample Data
+
+The repository includes **sample Ethereum data from January 2023**.  
+Since the full dataset is too large, only a **small subset** is provided to demonstrate the pipeline.  
+
+- **Raw sample files**: `data/raw/ethereum/**/2023/01/`  
+- **Intermediate outputs** after ETL and abstraction: `data/intermediate/**/ethereum/2023/01/`  
+- **Final results**, including the analysis table:  
+  `data/output/**/2023/01/ethereum__analysis_result__2023_01.csv`  
+
+These files let you check the **expected format, schema, and output columns** without running the full dataset. Because the raw data is only a **small representative sample**, the outputs are **illustrative only** and do not reflect full Ethereum network behaviour.
