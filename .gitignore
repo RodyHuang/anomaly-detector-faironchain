@@ -199,8 +199,3 @@ data/raw/
 data/intermediate/
 data/output/
 *.csv
-
-# Exception: allow sample raw data for January 2023
-!data/raw/**/2023/01/**
-!data/intermediate/**/2023/01/**
-!data/output/**/2023/01/**
