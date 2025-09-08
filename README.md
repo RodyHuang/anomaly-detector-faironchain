@@ -138,17 +138,22 @@ python -m api.app
 
 - **GET /v1/top**: top-N anomalous accounts
 ```bash
-curl "http://0.0.0.0:8000/v1/top?year=2023&month=1&n=10"
+curl "http://127.0.0.1:8000/v1/top?chain=ethereum&year=2023&month=1&n=10"
 ```
 - **GET /v1/address**: anomaly profile of a given address
 ```bash
-curl "http://0.0.0.0:8000/v1/address?year=2023&month=1&address=0x1234567890abcdef..."
+curl "http://127.0.0.1:8000/v1/address?chain=ethereum&year=2023&month=1&addr=0x1234567890abcdef..."
 ```
 - **POST /v1/sql**: custom SQL queries on the monthly results
 ```bash
-curl -X POST "http://0.0.0.0:8000/v1/sql" \
+curl -X POST "http://127.0.0.1:8000/v1/sql" \
      -H "Content-Type: application/json" \
-     -d '{"year": 2023, "month": 1, "sql": "SELECT address, final_score_0_100 FROM t ORDER BY final_score_0_100 DESC LIMIT 5;"}'
+     -d '{
+           "chain": "ethereum",
+           "year": 2023,
+           "month": 1,
+           "sql": "SELECT address, final_score_0_100 FROM t ORDER BY final_score_0_100 DESC LIMIT 5;"
+         }'
 ```
 
 
@@ -163,7 +168,6 @@ All detector outputs are consolidated into a single monthly analysis table:
 |----------------------|---------|
 | **Identifiers**      | `node`, `address`, `is_infra`, `chain_id`, `year`, `month` |
 | **Graph Degrees**    | `in_degree`, `out_degree`, `in_transfer_count`, `out_transfer_count`, `total_input_amount`, `total_output_amount`, `balance_proxy` |
-| **Unique Degrees**   | `unique_in_degree`, `unique_out_degree` |
 | **Motif Features**   | `self_loop_count`, `two_node_loop_count`, `two_node_loop_amount`, `two_node_loop_tx_count`, `triangle_loop_count`, `triangle_loop_amount`, `triangle_loop_tx_count` |
 | **Egonet Features**  | `egonet_node_count`, `egonet_edge_count`, `egonet_density` |
 | **Heuristic Flags**  | `H1_flag`, `H1_description`, `H2_flag`, `H2_description`, `H3_flag`, `H3_description`, `H4_flag`, `H4_description`, `H5_flag`, `H5_description`, `H6_flag`, `H6_description` |
